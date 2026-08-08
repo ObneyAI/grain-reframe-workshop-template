@@ -48,7 +48,8 @@ clojure -M:dev -e '
             :when (= :error (:severity finding))]
       (prn finding)))
   (when-not (and (:valid? composition) (:valid? topology))
-    (System/exit 1)))'
+    (System/exit 1))
+  (shutdown-agents))'
 
 echo "==> Polylith tests"
 clojure -M:poly test :all-bricks :dev

@@ -6,12 +6,12 @@
         obneyai/grain-core-v2
         {:git/url "https://github.com/ObneyAI/grain.git"
          :deps/root "projects/grain-core-v2"
-         :git/sha "7d35b3fc5743a5ab68f4e21ab21367c93f0eb614"}
+         :git/sha "382e7adc66ba347fd88e20b66cf02e737370c395"}
 
         obneyai/grain-event-store-sqlite-v3
         {:git/url "https://github.com/ObneyAI/grain.git"
          :deps/root "projects/grain-event-store-sqlite-v3"
-         :git/sha "7d35b3fc5743a5ab68f4e21ab21367c93f0eb614"}
+         :git/sha "382e7adc66ba347fd88e20b66cf02e737370c395"}
 
         ;; grain-code-agent-tools transitively includes the event-model +
         ;; event-model-validator components, so defeventmodel /
@@ -19,6 +19,6 @@
         obneyai/grain-code-agent-tools
         {:git/url "https://github.com/ObneyAI/grain.git"
          :deps/root "projects/grain-code-agent-tools"
-         :git/sha "7d35b3fc5743a5ab68f4e21ab21367c93f0eb614"}}
+         :git/sha "382e7adc66ba347fd88e20b66cf02e737370c395"}}
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps {}}}}
