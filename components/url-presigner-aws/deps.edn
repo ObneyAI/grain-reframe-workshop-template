@@ -1,0 +1,6 @@
+{:paths ["src"]
+ :deps {poly/url-presigner {:local/root "../url-presigner"}
+        poly/file-store {:local/root "../file-store"}
+        software.amazon.awssdk/s3 {:mvn/version "2.32.26"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

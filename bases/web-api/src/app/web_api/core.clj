@@ -17,12 +17,22 @@
             [ai.obney.grain.webserver.interface :as ws]
             [app.auth.interface :as auth]
             [app.config.interface :as config]
+            [app.crypto-kms.interface :as crypto-kms]
+            [app.crypto.interface :as crypto]
+            [app.email-ses.interface :as email-ses]
+            [app.email-smtp.interface :as email-smtp]
             [app.email.interface :as email]
+            [app.file-store-s3.interface :as file-store-s3]
+            [app.file-store.interface :as file-store]
             [app.jwt.interface :as jwt]
+            [app.observability.interface :as observability]
+            [app.url-presigner-aws.interface :as url-presigner-aws]
+            [app.url-presigner.interface :as url-presigner]
             ;; Loading the user-service interface registers its commands/queries/read-models.
             [app.user-service.interface :as user]
             [cognitect.anomalies :as anom]
             [cognitect.transit :as transit]
+            [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as string]
@@ -76,10 +86,38 @@
 
 (defn system-map
   "Build the Integrant system from validated application configuration."
-  [{:keys [app-base-url auth-cookie-name cookie-secure? email-client email-from http-port
-           jwt-secret locale storage-dir tenant-id time-zone]
+  [{:keys [app-base-url auth-cookie-name aws-endpoint aws-region cookie-secure?
+           crypto-key crypto-provider email-client email-from email-provider
+           file-store-provider http-port jwt-secret kms-key-id locale log-destination
+           log-file s3-bucket smtp-host smtp-port storage-dir tenant-id time-zone]
     :as configuration}]
-  {::logger {}
+  {::logger {:destination log-destination
+             :filename log-file
+             :pretty? (not (config/production? configuration))}
+
+   ::metrics {}
+
+   ::email-client {:adapter email-client
+                   :provider email-provider
+                   :smtp-host smtp-host
+                   :smtp-port smtp-port
+                   :aws-region aws-region}
+
+   ::file-store {:provider file-store-provider
+                 :aws-region aws-region
+                 :aws-endpoint aws-endpoint
+                 :s3-bucket s3-bucket}
+
+   ::url-presigner {:provider file-store-provider
+                    :aws-region aws-region
+                    :aws-endpoint aws-endpoint
+                    :s3-bucket s3-bucket}
+
+   ::crypto {:provider crypto-provider
+             :crypto-key crypto-key
+             :aws-region aws-region
+             :aws-endpoint aws-endpoint
+             :kms-key-id kms-key-id}
 
    ::event-store {:event-pubsub (ig/ref ::event-pubsub)
                   :conn {:type :sqlite
@@ -101,7 +139,10 @@
               :time-zone time-zone
               :app-base app-base-url
               :email-from email-from
-              :email-client (or email-client (email/logger-email))}
+              :email-client (ig/ref ::email-client)
+              :file-store (ig/ref ::file-store)
+              :url-presigner (ig/ref ::url-presigner)
+              :crypto (ig/ref ::crypto)}
 
    ::processors {:event-store (ig/ref ::event-store)
                  :cache (ig/ref ::cache)
@@ -109,7 +150,9 @@
                  :context (ig/ref ::context)}
 
    ::routes {:context (ig/ref ::context)
-             :browser-settings {:locale locale :time-zone time-zone}}
+             :browser-settings {:locale locale :time-zone time-zone}
+             :configuration configuration
+             :metrics (ig/ref ::metrics)}
 
    ::webserver {::http/routes (ig/ref ::routes)
                 ::auth-token-verifier (ig/ref ::auth-token-verifier)
@@ -120,6 +163,7 @@
                 ::http/resource-path "public"
                 ::http/not-found-interceptor
                 (spa-not-found-interceptor {:locale locale :time-zone time-zone})
+                ::metrics (ig/ref ::metrics)
                 ::http/secure-headers (secure-headers configuration)}})
 
 (defn- html-attribute
@@ -247,16 +291,48 @@
             :route-name (keyword "app.web-api.core" (str "spa-" index))]))
         (into #{}))))
 
-(defmethod ig/init-key ::logger [_ _]
-  (let [console-pub-stop-fn
-        (u/start-publisher! {:type :console
-                             :pretty? true
-                             :transform redact-log-events})]
-    (fn []
-      (console-pub-stop-fn))))
+(defmethod ig/init-key ::logger [_ logger-configuration]
+  (let [stop-publisher (observability/start-logger
+                        (assoc logger-configuration :transform redact-log-events))]
+    (fn [] (stop-publisher))))
 
 (defmethod ig/halt-key! ::logger [_ stop-fn]
   (stop-fn))
+
+(defmethod ig/init-key ::metrics [_ _]
+  (observability/metrics))
+
+(defmethod ig/init-key ::email-client
+  [_ {:keys [adapter provider smtp-host smtp-port aws-region]}]
+  (or adapter
+      (case provider
+        :logger (email/logger-email)
+        :smtp (email-smtp/smtp-email {:host smtp-host :port smtp-port})
+        :ses (email-ses/ses-email {:region aws-region}))))
+
+(defmethod ig/init-key ::file-store
+  [_ {:keys [provider aws-region aws-endpoint s3-bucket]}]
+  (case provider
+    :memory (file-store/memory-file-store)
+    :s3 (file-store-s3/s3-file-store {:region aws-region
+                                      :endpoint aws-endpoint
+                                      :bucket s3-bucket})))
+
+(defmethod ig/init-key ::url-presigner
+  [_ {:keys [provider aws-region aws-endpoint s3-bucket]}]
+  (case provider
+    :memory (url-presigner/stub-presigner)
+    :s3 (url-presigner-aws/aws-url-presigner {:region aws-region
+                                              :endpoint aws-endpoint
+                                              :bucket s3-bucket})))
+
+(defmethod ig/init-key ::crypto
+  [_ {:keys [provider crypto-key aws-region aws-endpoint kms-key-id]}]
+  (case provider
+    :local (crypto/local-crypto crypto-key)
+    :kms (crypto-kms/kms-crypto {:region aws-region
+                                 :endpoint aws-endpoint
+                                 :key-id kms-key-id})))
 
 (defmethod ig/init-key ::event-store [_ config]
   (es/start config))
@@ -306,21 +382,49 @@
 (defmethod ig/halt-key! ::processors [_ poller]
   (tp/stop-tenant-poller poller))
 
-(defmethod ig/init-key ::routes [_ {:keys [browser-settings context]}]
-  (set/union
-   (crh/routes context)
-   (qrh/routes context)
-   (spa-routes browser-settings)
-   #{["/healthcheck" :get [(fn [_] {:status 200 :body "OK"})] :route-name ::healthcheck]
-     ["/favicon.ico" :get [(fn [_] {:status 204 :body ""})] :route-name ::favicon]}))
+(defn- json-response
+  [status value]
+  {:status status
+   :headers {"Content-Type" "application/json; charset=utf-8"}
+   :body (json/write-str value
+                         :key-fn (fn [key]
+                                   (if (keyword? key)
+                                     (subs (str key) 1)
+                                     (str key))))})
+
+(defmethod ig/init-key ::routes
+  [_ {:keys [browser-settings configuration context metrics]}]
+  (let [health-handler
+        (fn [_]
+          (let [report (observability/health-report
+                        {:application #(select-keys configuration
+                                                    [:app-name :environment])
+                         :event-store #(boolean (:event-store context))
+                         :projection-cache #(boolean (:cache context))
+                         :email-provider #(name (:email-provider configuration))
+                         :file-store-provider #(name (:file-store-provider configuration))
+                         :crypto-provider #(name (:crypto-provider configuration))})]
+            (json-response (if (= :ok (:status report)) 200 503) report)))]
+    (set/union
+     (crh/routes context)
+     (qrh/routes context)
+     (spa-routes browser-settings)
+     #{["/healthcheck" :get [(fn [_] {:status 200 :body "OK"})]
+        :route-name ::healthcheck]
+       ["/health" :get [health-handler] :route-name ::health]
+       ["/metrics" :get [(fn [_] (json-response 200 (observability/snapshot metrics)))]
+        :route-name ::metrics]
+       ["/favicon.ico" :get [(fn [_] {:status 204 :body ""})]
+        :route-name ::favicon]})))
 
 (defmethod ig/init-key ::webserver
-  [_ {::keys [auth-cookie-name auth-token-verifier cookie-secure?] :as system-config}]
+  [_ {::keys [auth-cookie-name auth-token-verifier cookie-secure? metrics] :as system-config}]
   (ws/start
-   (-> (dissoc system-config ::auth-cookie-name ::auth-token-verifier ::cookie-secure?)
+   (-> (dissoc system-config ::auth-cookie-name ::auth-token-verifier ::cookie-secure? ::metrics)
        http/default-interceptors
        (update ::http/interceptors
                conj
+               (observability/request-observability-interceptor {:metrics metrics})
                middlewares/cookies
                (auth/extract-auth-cookie-interceptor
                 {:verify-token auth-token-verifier

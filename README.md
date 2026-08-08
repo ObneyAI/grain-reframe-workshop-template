@@ -28,7 +28,12 @@ defaults. It fails if stale starter identity remains in executable configuration
 ## What ships
 
 - Grain CQRS backend: commands → events → read models → queries.
-- SQLite event store and LMDB projection cache; no AWS or LocalStack.
+- SQLite event store and LMDB projection cache with memory-first infrastructure adapters.
+- Provider-neutral email with logger/test, Mailpit SMTP, and AWS SES adapters.
+- Provider-neutral files and presigned URLs with memory/test, S3, and LocalStack adapters.
+- Authenticated AES-GCM encryption with local-key and AWS KMS envelope-encryption adapters.
+- A webhook module for raw-body preservation, HMAC verification, event-ID idempotency, audit receipts,
+  and failed-delivery replay.
 - Account foundation: sign-up, email verification, login/logout, password reset, HTTP-only sessions.
 - Protected, anonymous-only, and public route policies with safe post-login return paths and explicit
   403, 404, session-loading, and application-error outcomes.
@@ -41,6 +46,8 @@ defaults. It fails if stale starter identity remains in executable configuration
 - Recursive credential redaction before logging so requests, cookies, headers, passwords, session/JWT
   secrets, verification/reset tokens, and token-bearing email HTML are not published by the development
   console adapter.
+- Request correlation IDs, in-process transport metrics, diagnostic health, and selectable pretty-console,
+  JSON-console, or file μ/log destinations.
 - A real shadcn TypeScript workspace whose compiled React interface is consumable from UIx.
 - Allium + `defeventmodel` composition checks, Polylith tests, Clojure lint, frontend tests, and a
   production frontend build in one gate.
@@ -59,6 +66,10 @@ Have these on `PATH` before the first `npm run dev` or `./scripts/verify-specs.s
 - ripgrep (`rg`) — the frontend seam-discipline checks in the gate
 - Allium CLI (3.5) — the specification stage of the gate
 
+Docker with Compose is optional but recommended. The managed development command uses it for the pinned
+Mailpit and LocalStack containers. Without Docker, the application still starts with logger email, memory
+files, and local encryption.
+
 Playwright's Chromium bundle is also required for the browser contract. Install the pinned bundle after
 `npm ci` with `npx playwright install chromium`; clean Linux CI uses `--with-deps` as well.
 
@@ -76,9 +87,12 @@ export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
 ./scripts/dev status
 ```
 
-`up` installs the locked JavaScript dependencies when needed, claims
+`up` installs the locked JavaScript dependencies when needed, starts Mailpit and LocalStack when Docker is
+available, and claims
 <https://reframe-template.localhost> through Portless when it is installed, builds the
 shadcn bridge, starts Vite, Tailwind, Shadow CLJS, and the Clojure backend, then waits for the health check.
+It reports the Mailpit inbox as <https://reframe-template-mail.localhost> with Portless or
+<http://localhost:8025> directly. Set `APP_DEV_INFRA=false` to use the in-process adapters instead.
 Without Portless it falls back to <http://localhost:8080>. The lifecycle is designed for developers and
 coding agents alike:
 
@@ -116,11 +130,35 @@ Then start the backend from the REPL:
 The backend serves the compiled frontend and Grain's `/command` and
 `/query` endpoints from the same origin, so session cookies do not need a development CORS workaround.
 
+## Infrastructure adapters
+
+Application modules use small provider-neutral interfaces; provider clients and request shapes remain inside
+their adapters. The managed development command selects SMTP, S3, and KMS when its containers are available.
+Direct REPL/test starts default to logger email, memory files, and local AES-GCM.
+
+| Capability | Local/test | Production | Configuration |
+|---|---|---|---|
+| Email | logger or Mailpit SMTP | AWS SES | `APP_EMAIL_PROVIDER` |
+| Files | memory | AWS S3 | `APP_FILE_STORE_PROVIDER` |
+| Download/upload URLs | deterministic stub | AWS S3 presigning | follows file-store provider |
+| Protected values | local AES-256-GCM | AWS KMS envelope encryption | `APP_CRYPTO_PROVIDER` |
+| Logs | pretty console | JSON console or file | `APP_LOG_DESTINATION` |
+
+The backend exposes `/healthcheck` for liveness, `/health` for safe dependency diagnostics, and `/metrics`
+for process-local request counters and latency summaries. See
+[docs/PROVIDER-ADAPTERS.md](docs/PROVIDER-ADAPTERS.md) before adding Stripe, Twilio, or another vendor.
+
 ## Layout
 
 ```text
 bases/web-api/          HTTP entry point, Grain routes, SPA fallback
 components/             backend Polylith components
+  email*                 logger, local SMTP, and SES adapters
+  file-store*            memory and S3 object storage
+  url-presigner*         deterministic and AWS presigned URLs
+  crypto*                local AES-GCM and KMS envelope encryption
+  webhooks               signature, idempotency, receipt, and replay machinery
+  observability          request metrics, health, correlation, and log adapters
 ui/web-app/src/app/
   api/                  Grain HTTP client seam + remote/stub adapters
   auth/                 session/account Re-frame module
@@ -198,8 +236,10 @@ data do not belong in the starter.
 
 Set `APP_COOKIE_SECURE=true` in HTTPS deployments. Override the frontend API origin at compile time
 only when the UI genuinely deploys separately; same-origin is the default and preferred topology.
-Production startup also requires a non-placeholder `APP_JWT_SECRET`, an HTTPS `APP_BASE_URL`, and secure
-cookies. Invalid settings fail together at boot with actionable messages.
+Production startup also requires a non-placeholder `APP_JWT_SECRET`, a non-development `APP_CRYPTO_KEY`
+when local crypto is selected, AWS SES and S3 configuration, an HTTPS `APP_BASE_URL`, and secure cookies.
+Local SMTP, memory file storage, and AWS endpoint overrides are rejected in production. Invalid settings
+fail together at boot with actionable messages.
 
 Set `APP_LOCALE` to a BCP 47 language tag and `APP_TIME_ZONE` to an IANA zone (or `UTC`). The backend
 validates both and publishes them to the same-origin browser document for `app.clock.interface` formatting.

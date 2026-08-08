@@ -1,0 +1,4 @@
+{:paths ["src"]
+ :deps {poly/file-store {:local/root "../file-store"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

@@ -85,6 +85,7 @@ echo "==> Start the initialized application on $port"
     APP_HTTP_PORT="$port" \
     APP_BASE_URL="http://localhost:$port" \
     APP_DEV_PORTLESS=false \
+    APP_DEV_INFRA=false \
     APP_TENANT_ID="11111111-1111-4111-8111-111111111111" \
     APP_AUTH_COOKIE_NAME="acceptance-app-session" \
     APP_STORAGE_DIR="$storage_root" \

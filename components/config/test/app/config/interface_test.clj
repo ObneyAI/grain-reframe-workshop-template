@@ -9,6 +9,10 @@
     (is (= 8080 (:http-port configuration)))
     (is (= "http://localhost:8080" (:app-base-url configuration)))
     (is (= "grain-reframe-workshop-template-session" (:auth-cookie-name configuration)))
+    (is (= :logger (:email-provider configuration)))
+    (is (= :memory (:file-store-provider configuration)))
+    (is (= :local (:crypto-provider configuration)))
+    (is (= :console (:log-destination configuration)))
     (is (= "en-US" (:locale configuration)))
     (is (= "UTC" (:time-zone configuration)))
     (is (false? (:cookie-secure? configuration)))
@@ -58,8 +62,12 @@
                           "APP_HTTP_PORT" "443"
                           "APP_BASE_URL" "https://app.example.com"
                           "APP_JWT_SECRET" "production-secret-from-a-secret-store"
+                          "APP_CRYPTO_KEY" "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY="
                           "APP_TENANT_ID" (str tenant-id)
                           "APP_EMAIL_FROM" "app@example.com"
+                          "APP_EMAIL_PROVIDER" "ses"
+                          "APP_FILE_STORE_PROVIDER" "s3"
+                          "APP_S3_BUCKET" "my-app-files"
                           "APP_AUTH_COOKIE_NAME" "my-app-session"
                           "APP_COOKIE_SECURE" "true"
                           "APP_STORAGE_DIR" "/var/lib/my-app"})]
@@ -67,3 +75,19 @@
       (is (= tenant-id (:tenant-id configuration)))
       (is (= 443 (:http-port configuration)))
       (is (true? (:cookie-secure? configuration))))))
+
+(deftest production-rejects-local-provider-shortcuts
+  (let [failure (try
+                  (config/load {"APP_ENV" "production"
+                                "APP_BASE_URL" "https://app.example.com"
+                                "APP_COOKIE_SECURE" "true"
+                                "APP_JWT_SECRET" "production-secret"
+                                "APP_EMAIL_PROVIDER" "smtp"
+                                "APP_FILE_STORE_PROVIDER" "memory"
+                                "AWS_ENDPOINT_URL" "http://localhost:4566"})
+                  nil
+                  (catch clojure.lang.ExceptionInfo error error))
+        errors (:config/errors (ex-data failure))]
+    (is (some #{"APP_EMAIL_PROVIDER must be ses in production"} errors))
+    (is (some #{"APP_FILE_STORE_PROVIDER must be s3 in production"} errors))
+    (is (some #{"AWS_ENDPOINT_URL must not override AWS endpoints in production"} errors))))

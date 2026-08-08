@@ -22,6 +22,11 @@ This document separates what the starter guarantees from work that belongs to ea
 - A single configured deployment tenant by default without baking single-tenancy into domain modules.
 - Validated development and production configuration, guarded local storage reset/seed commands,
   recursive credential redaction, and isolated integration-test storage.
+- Provider-neutral email, file storage, presigning, and encryption seams with deterministic local adapters;
+  SES, S3, and KMS production adapters; and pinned Mailpit/LocalStack development infrastructure.
+- A provider-neutral webhook processor with raw-body preservation, HMAC verification, process-local
+  idempotency/audit receipts, and failed-receipt replay.
+- Correlation IDs, request metrics, safe dependency diagnostics, and configurable μ/log destinations.
 - A managed `scripts/dev` lifecycle for humans and coding agents, including health-checked background
   startup, status/log/stop commands, project-owned Portless routing with localhost fallback, a complete
   specification/build gate, a tracked-files fresh-clone acceptance check, and browser contracts for
@@ -50,8 +55,10 @@ Delete examples only after the cloned app has equivalent acceptance coverage for
 
 - A real production `APP_JWT_SECRET`, HTTPS `APP_BASE_URL`, secure-cookie setting, canonical base URL,
   tenant UUID, email sender, and isolated storage path.
-- Production email, observability, secret-management, backup/restore, and deployment adapters appropriate
-  to its environment.
+- Production provider credentials, secret management, backup/restore, deployment configuration, and any
+  hosted log/metric exporter appropriate to its environment.
+- Durable webhook receipt storage before accepting production webhooks; the starter's process-local adapter
+  proves behavior but cannot preserve idempotency across restarts or multiple instances.
 - Its own domain services, authorization rules, seed adapter, navigation, visual identity, and
   loading/error/empty/success states.
 - Date-driven business rules such as overdue status, follow-up cadence, and pipeline stage age.

@@ -1,0 +1,4 @@
+{:paths ["src"]
+ :deps {poly/email {:local/root "../email"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

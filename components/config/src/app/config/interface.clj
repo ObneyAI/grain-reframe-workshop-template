@@ -3,6 +3,8 @@
   (:require [clojure.string :as string]))
 
 (def ^:private development-jwt-secret "dev-secret-change-me")
+(def ^:private development-crypto-key
+  "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
 (def ^:private development-tenant-id
   #uuid "b1d4d3e2-0000-4000-8000-000000000001")
 
@@ -37,6 +39,11 @@
   (try
     (some-> value java.util.UUID/fromString)
     (catch Exception _ nil)))
+
+(defn- parse-choice
+  [value default choices]
+  (let [choice (keyword (some-> (or value default) string/lower-case))]
+    (when (contains? choices choice) choice)))
 
 (defn- http-url?
   [value]
@@ -94,6 +101,43 @@
     (not (present? (:email-from values)))
     (conj "APP_EMAIL_FROM must not be blank")
 
+    (nil? (:email-provider values))
+    (conj "APP_EMAIL_PROVIDER must be logger, smtp, or ses")
+
+    (not (and (:smtp-port values) (<= 1 (:smtp-port values) 65535)))
+    (conj "APP_SMTP_PORT must be an integer from 1 through 65535")
+
+    (nil? (:file-store-provider values))
+    (conj "APP_FILE_STORE_PROVIDER must be memory or s3")
+
+    (nil? (:crypto-provider values))
+    (conj "APP_CRYPTO_PROVIDER must be local or kms")
+
+    (nil? (:log-destination values))
+    (conj "APP_LOG_DESTINATION must be console, json-console, or file")
+
+    (and (= :file (:log-destination values))
+         (not (present? (:log-file values))))
+    (conj "APP_LOG_FILE is required when APP_LOG_DESTINATION=file")
+
+    (and (= :s3 (:file-store-provider values))
+         (not (present? (:s3-bucket values))))
+    (conj "APP_S3_BUCKET is required when APP_FILE_STORE_PROVIDER=s3")
+
+    (and (= :kms (:crypto-provider values))
+         (not (present? (:kms-key-id values))))
+    (conj "APP_KMS_KEY_ID is required when APP_CRYPTO_PROVIDER=kms")
+
+    (and (or (= :ses (:email-provider values))
+             (= :s3 (:file-store-provider values))
+             (= :kms (:crypto-provider values)))
+         (not (present? (:aws-region values))))
+    (conj "AWS_REGION is required by the selected AWS provider")
+
+    (and (present? (:aws-endpoint values))
+         (not (http-url? (:aws-endpoint values))))
+    (conj "AWS_ENDPOINT_URL must be an absolute http or https URL")
+
     (not (cookie-name? (:auth-cookie-name values)))
     (conj "APP_AUTH_COOKIE_NAME must be a valid cookie name")
 
@@ -123,7 +167,24 @@
 
     (and (= :production environment)
          (not (true? (:cookie-secure? values))))
-    (conj "APP_COOKIE_SECURE must be true in production")))
+    (conj "APP_COOKIE_SECURE must be true in production")
+
+    (and (= :production environment)
+         (not= :ses (:email-provider values)))
+    (conj "APP_EMAIL_PROVIDER must be ses in production")
+
+    (and (= :production environment)
+         (= :memory (:file-store-provider values)))
+    (conj "APP_FILE_STORE_PROVIDER must be s3 in production")
+
+    (and (= :production environment)
+         (= :local (:crypto-provider values))
+         (= development-crypto-key (:crypto-key values)))
+    (conj "APP_CRYPTO_KEY must not use the development placeholder in production")
+
+    (and (= :production environment)
+         (present? (:aws-endpoint values)))
+    (conj "AWS_ENDPOINT_URL must not override AWS endpoints in production")))
 
 (defn load
   "Parse and validate application configuration. With no argument, reads the
@@ -146,6 +207,32 @@
                                                   (str development-tenant-id)))
                  :email-from (or (get environment-variables "APP_EMAIL_FROM")
                                  "noreply@grain-reframe-workshop-template.local")
+                 :email-provider (parse-choice (get environment-variables "APP_EMAIL_PROVIDER")
+                                               "logger"
+                                               #{:logger :smtp :ses})
+                 :smtp-host (or (get environment-variables "APP_SMTP_HOST") "localhost")
+                 :smtp-port (parse-integer (or (get environment-variables "APP_SMTP_PORT") "1025"))
+                 :file-store-provider
+                 (parse-choice (get environment-variables "APP_FILE_STORE_PROVIDER")
+                               "memory"
+                               #{:memory :s3})
+                 :crypto-provider (parse-choice (get environment-variables "APP_CRYPTO_PROVIDER")
+                                                "local"
+                                                #{:local :kms})
+                 :crypto-key (or (get environment-variables "APP_CRYPTO_KEY")
+                                 development-crypto-key)
+                 :aws-region (or (get environment-variables "AWS_REGION") "us-east-1")
+                 :aws-endpoint (get environment-variables "AWS_ENDPOINT_URL")
+                 :s3-bucket (or (get environment-variables "APP_S3_BUCKET") "grain-files")
+                 :kms-key-id (or (get environment-variables "APP_KMS_KEY_ID")
+                                 "alias/grain-local-key")
+                 :log-destination
+                 (parse-choice (get environment-variables "APP_LOG_DESTINATION")
+                               (if production? "json-console" "console")
+                               #{:console :json-console :file})
+                 :log-file (or (get environment-variables "APP_LOG_FILE")
+                               (str (or (get environment-variables "APP_STORAGE_DIR") "storage")
+                                    "/application.log"))
                  :auth-cookie-name (or (get environment-variables "APP_AUTH_COOKIE_NAME")
                                        "grain-reframe-workshop-template-session")
                  :locale (or (get environment-variables "APP_LOCALE") "en-US")

@@ -1,0 +1,8 @@
+{:paths ["src"]
+ :deps {poly/file-store {:local/root "../file-store"}
+        com.cognitect.aws/api {:mvn/version "0.8.762"}
+        com.cognitect.aws/endpoints {:mvn/version "871.2.32.30"}
+        com.cognitect.aws/s3 {:mvn/version "871.2.29.52"
+                              :aws/serviceFullName "Amazon Simple Storage Service"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

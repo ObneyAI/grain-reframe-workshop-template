@@ -20,7 +20,13 @@ bases/web-api/src/app/web_api/core.clj       Integrant system, auth interceptors
 components/auth                              cookie/claim seam
 components/config                            validated runtime configuration module
 components/jwt                               token signing
-components/email                             email adapter
+components/email                             provider-neutral email seam + logger adapter
+components/email-smtp / email-ses            Mailpit-local and AWS production email adapters
+components/file-store / file-store-s3        memory and S3 object-storage adapters
+components/url-presigner*                    deterministic and AWS presigning adapters
+components/crypto / crypto-kms               local AES-GCM and KMS envelope-encryption adapters
+components/webhooks                          signature, idempotency, audit, and replay module
+components/observability                     correlation IDs, health, metrics, log destinations
 components/user-service                      account domain
 ui/web-app/src/app/api                       frontend Grain transport module
 ui/web-app/src/app/auth                      frontend account/session module
@@ -111,6 +117,12 @@ as plain data and belong in Re-frame. Never put React elements, callbacks, or Ba
   claims must match it. Do not add request-time tenant resolution until a second tenant creates a real
   adapter seam; when that happens, resolve the tenant before Grain dispatch and authorize membership.
 - Keep `(:missing-schemas (tools/catalog))` empty and the event model reconciled.
+- Domain modules receive `:email-client`, `:file-store`, `:url-presigner`, and `:crypto` through context.
+  They never create an AWS/SMTP client or emit provider request maps. Add an adapter at the existing seam
+  when a provider changes; exercise application behavior with the deterministic local adapter.
+- Webhook routes must preserve the exact raw body with `app.webhooks.interface/capture-raw-body`, verify
+  before parsing or dispatch, and use `WebhookProcessor` for event-ID idempotency and replay. The included
+  receipt store is process-local; a production webhook consumer must add durable receipt storage.
 
 ## Running and reloading
 
@@ -120,9 +132,11 @@ as plain data and belong in Re-frame. Never put React elements, callbacks, or Ba
 ```
 
 That is the canonical non-interactive full-stack path for humans and coding agents. It installs locked
-JavaScript dependencies when absent, starts the stack detached, waits for `/healthcheck`, and reports the
-application URL. When Portless is installed it owns `APP_DEV_HOSTNAME.localhost` (the initialized app slug)
-and otherwise falls back to the direct localhost port. Never claim another project's hostname.
+JavaScript dependencies when absent, starts Mailpit and LocalStack when Docker is available, starts the
+stack detached, waits for `/healthcheck`, and reports the application and mailbox URLs. Without Docker it
+uses logger email, memory files, and local encryption. When Portless is installed it owns
+`APP_DEV_HOSTNAME.localhost` (the initialized app slug) and otherwise falls back to the direct localhost
+port. Never claim another project's hostname.
 
 When asked to start the app, run `./scripts/dev up`, then `./scripts/dev status`, and report the application
 URL. Do not launch a duplicate foreground stack. Diagnose failures with `./scripts/dev logs`; use

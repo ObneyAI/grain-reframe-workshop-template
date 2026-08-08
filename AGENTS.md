@@ -18,6 +18,8 @@ Quick contract:
   ClojureScript-side pattern repeats.
 - Keep Re-frame handlers pure. HTTP and browser effects live behind registered effects; app-db contains
   serializable data, not clients, callbacks, or React values.
+- Application modules use the provider-neutral email, file-store, URL-presigner, crypto, and webhook
+  interfaces. AWS, SMTP, and vendor request shapes stay inside adapters; tests use local adapters.
 - When asked to start the app, use `./scripts/dev up`, confirm with `./scripts/dev status`, and report its
   application URL. Use `./scripts/dev logs` to diagnose startup and `./scripts/dev down` to stop it.
 - Run `./scripts/verify-specs.sh` before reporting success. For routing, auth, or shadcn changes, also run

@@ -1,0 +1,8 @@
+{:paths ["src"]
+ :deps {poly/crypto {:local/root "../crypto"}
+        com.cognitect.aws/api {:mvn/version "0.8.762"}
+        com.cognitect.aws/endpoints {:mvn/version "871.2.32.30"}
+        com.cognitect.aws/kms {:mvn/version "871.2.32.10"
+                               :aws/serviceFullName "AWS Key Management Service"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

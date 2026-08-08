@@ -7,6 +7,16 @@
                      poly/jwt  {:local/root "components/jwt"}
                      poly/auth {:local/root "components/auth"}
                      poly/email {:local/root "components/email"}
+                     poly/email-smtp {:local/root "components/email-smtp"}
+                     poly/email-ses {:local/root "components/email-ses"}
+                     poly/file-store {:local/root "components/file-store"}
+                     poly/file-store-s3 {:local/root "components/file-store-s3"}
+                     poly/url-presigner {:local/root "components/url-presigner"}
+                     poly/url-presigner-aws {:local/root "components/url-presigner-aws"}
+                     poly/crypto {:local/root "components/crypto"}
+                     poly/crypto-kms {:local/root "components/crypto-kms"}
+                     poly/webhooks {:local/root "components/webhooks"}
+                     poly/observability {:local/root "components/observability"}
 
                      ;; Service components
                      poly/user-service {:local/root "components/user-service"}

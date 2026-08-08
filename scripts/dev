@@ -32,6 +32,8 @@ fi
 
 app_port="${APP_HTTP_PORT:-8080}"
 dev_hostname="${APP_DEV_HOSTNAME:-reframe-template}"
+mailpit_ui_port="${APP_MAILPIT_UI_PORT:-8025}"
+localstack_port="${APP_LOCALSTACK_PORT:-4566}"
 dev_state_dir="${DEV_ENV_DIR:-.dev-env}"
 pid_file="$dev_state_dir/dev.pid"
 log_file="$dev_state_dir/dev.log"
@@ -39,6 +41,7 @@ state_file="$dev_state_dir/state"
 health_url="http://localhost:$app_port/healthcheck"
 direct_url="http://localhost:$app_port"
 public_url="${APP_BASE_URL:-$direct_url}"
+mailbox_url="http://localhost:$mailpit_ui_port"
 
 command_name="${1:-status}"
 [[ $# -eq 0 ]] || shift
@@ -157,6 +160,10 @@ configure_public_url() {
         public_url="$portless_url"
       fi
       log "Portless: $portless_url -> localhost:$app_port"
+      if portless alias "$dev_hostname-mail" "$mailpit_ui_port" --force >/dev/null 2>&1; then
+        mailbox_url="https://$dev_hostname-mail.localhost"
+        log "Portless: $mailbox_url -> localhost:$mailpit_ui_port"
+      fi
     else
       log "Portless could not register $dev_hostname.localhost." >&2
       if [[ -z "${APP_BASE_URL:-}" || "$APP_BASE_URL" == "$portless_url" ]]; then
@@ -173,12 +180,69 @@ configure_public_url() {
   export APP_HTTP_PORT="$app_port"
 }
 
+infrastructure_available() {
+  command -v docker >/dev/null 2>&1 &&
+    docker compose version >/dev/null 2>&1 &&
+    docker info >/dev/null 2>&1
+}
+
+wait_for_infrastructure() {
+  local elapsed=0 timeout="${DEV_ENV_INFRA_TIMEOUT:-90}"
+  while [[ "$elapsed" -lt "$timeout" ]]; do
+    if curl --silent --fail "http://localhost:$mailpit_ui_port/readyz" >/dev/null 2>&1 &&
+       curl --silent --fail "http://localhost:$localstack_port/_localstack/health" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  return 1
+}
+
+start_infrastructure() {
+  if [[ "${APP_DEV_INFRA:-true}" == "false" ]]; then
+    log "Development infrastructure disabled; using configured in-process adapters."
+    return 0
+  fi
+  if ! infrastructure_available; then
+    log "Docker is unavailable; using logger email, memory files, and local crypto." >&2
+    return 0
+  fi
+
+  log "Starting Mailpit and LocalStack development infrastructure..."
+  docker compose up -d
+  if ! wait_for_infrastructure; then
+    docker compose ps >&2 || true
+    die "Mailpit or LocalStack did not become ready"
+  fi
+
+  export APP_EMAIL_PROVIDER="${APP_EMAIL_PROVIDER:-smtp}"
+  export APP_SMTP_HOST="${APP_SMTP_HOST:-localhost}"
+  export APP_SMTP_PORT="${APP_SMTP_PORT:-1025}"
+  export APP_FILE_STORE_PROVIDER="${APP_FILE_STORE_PROVIDER:-s3}"
+  export APP_S3_BUCKET="${APP_S3_BUCKET:-grain-files}"
+  export APP_CRYPTO_PROVIDER="${APP_CRYPTO_PROVIDER:-kms}"
+  export APP_KMS_KEY_ID="${APP_KMS_KEY_ID:-alias/grain-local-key}"
+  export AWS_REGION="${AWS_REGION:-us-east-1}"
+  export AWS_ENDPOINT_URL="${AWS_ENDPOINT_URL:-http://localhost:$localstack_port}"
+  export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-test}"
+  export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-test}"
+  log "Mail inbox: $mailbox_url"
+}
+
+stop_infrastructure() {
+  if [[ "${APP_DEV_INFRA:-true}" != "false" ]] && infrastructure_available; then
+    docker compose down
+  fi
+}
+
 write_state() {
   ensure_state_dir
   {
     printf 'APP_HTTP_PORT=%q\n' "$app_port"
     printf 'APP_BASE_URL=%q\n' "$public_url"
     printf 'HEALTH_URL=%q\n' "$health_url"
+    printf 'MAILBOX_URL=%q\n' "$mailbox_url"
   } > "$state_file"
 }
 
@@ -189,6 +253,7 @@ read_state() {
     app_port="${APP_HTTP_PORT:-$app_port}"
     public_url="${APP_BASE_URL:-$public_url}"
     health_url="${HEALTH_URL:-$health_url}"
+    mailbox_url="${MAILBOX_URL:-$mailbox_url}"
   fi
 }
 
@@ -247,6 +312,7 @@ up() {
   ensure_tools
   ensure_dependencies
   configure_public_url
+  start_infrastructure
   write_state
   process_id="$(pid_from_file)"
   if is_alive "$process_id"; then
@@ -277,6 +343,7 @@ down() {
     wait_for_exit "$process_id"
   fi
   rm -f "$pid_file" .nrepl-port
+  stop_infrastructure
   log "Development stack stopped."
 }
 
@@ -291,6 +358,7 @@ stack:       $process_state
 health:      $health_state
 application: $public_url
 direct:      http://localhost:$app_port
+mailbox:     $mailbox_url
 logs:        $dev_state_dir/dev.log
 EOF
 }
@@ -308,6 +376,7 @@ foreground() {
   ensure_tools
   ensure_dependencies
   configure_public_url
+  start_infrastructure
   write_state
   clear_port_or_fail
   log "Application: $public_url"

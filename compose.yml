@@ -1,0 +1,20 @@
+services:
+  mailpit:
+    image: axllent/mailpit:v1.30.7
+    restart: unless-stopped
+    ports:
+      - "${APP_SMTP_PORT:-1025}:1025"
+      - "${APP_MAILPIT_UI_PORT:-8025}:8025"
+
+  localstack:
+    image: localstack/localstack:4.14.0
+    restart: unless-stopped
+    ports:
+      - "${APP_LOCALSTACK_PORT:-4566}:4566"
+    environment:
+      SERVICES: s3,kms
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+      APP_S3_BUCKET: ${APP_S3_BUCKET:-grain-files}
+      APP_KMS_KEY_ID: ${APP_KMS_KEY_ID:-alias/grain-local-key}
+    volumes:
+      - ./localstack-init:/etc/localstack/init/ready.d:ro
