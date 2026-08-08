@@ -146,12 +146,54 @@
           (is (= [email-address] (:to verification-email)))
           (is (string? verification-token)))
 
-        (testing "email verification succeeds through the public command endpoint"
+        (testing "an unverified account cannot create a session"
           (let [response (command client base-url
-                                  {:command/name :user/verify-email
-                                   :verification-token verification-token})]
-            (is (= 200 (:status response)))
-            (is (= {:email-verified true} (:body response))))))
+                                  {:command/name :user/login
+                                   :email-address email-address
+                                   :password password})]
+            (is (= 403 (:status response)))
+            (is (empty? (.allValues (:headers response) "set-cookie")))))
+
+        (reset! sent [])
+        (let [resend-response (command client base-url
+                                       {:command/name :user/request-email-verification
+                                        :email-address email-address})
+              replacement-email (await-email sent)
+              replacement-token (second
+                                  (re-find #"verification-token=([^\"]+)"
+                                           (:body-html replacement-email)))]
+          (testing "requesting another verification email rotates the pending token"
+            (is (= 200 (:status resend-response)))
+            (is (= {:verification-requested true} (:body resend-response)))
+            (is (= [email-address] (:to replacement-email)))
+            (is (string? replacement-token))
+            (is (not= verification-token replacement-token)))
+
+          (testing "the replaced verification link is invalid"
+            (let [response (command client base-url
+                                    {:command/name :user/verify-email
+                                     :verification-token verification-token})]
+              (is (= 409 (:status response)))))
+
+          (testing "the replacement verification link succeeds"
+            (let [response (command client base-url
+                                    {:command/name :user/verify-email
+                                     :verification-token replacement-token})]
+              (is (= 200 (:status response)))
+              (is (= {:email-verified true} (:body response)))))
+
+          (testing "verification requests do not reveal missing or already-verified accounts"
+            (reset! sent [])
+            (let [verified-response (command client base-url
+                                             {:command/name :user/request-email-verification
+                                              :email-address email-address})
+                  missing-response (command client base-url
+                                            {:command/name :user/request-email-verification
+                                             :email-address "missing@example.test"})]
+              (is (= {:verification-requested true} (:body verified-response)))
+              (is (= {:verification-requested true} (:body missing-response)))
+              (Thread/sleep 300)
+              (is (empty? @sent))))))
 
       (let [login-response (command client base-url
                                     {:command/name :user/login
@@ -203,6 +245,7 @@
         base-b (str "http://127.0.0.1:" port-b)
         cookie-a "acceptance-app-a-session"
         cookie-b "acceptance-app-b-session"
+        sent (atom [])
         client (.build (HttpClient/newBuilder))
         email-address (str "cookie-isolation-" (random-uuid) "@example.test")
         password "StarterPass123"
@@ -210,6 +253,7 @@
                   (acceptance-configuration
                    {:app-name "Acceptance App A"
                     :cookie-name cookie-a
+                    :email-client (email/logger-email sent)
                     :port port-a
                     :storage storage
                     :tenant-id tenant-id}))]
@@ -219,6 +263,12 @@
                                        :email-address email-address
                                        :password password
                                        :confirm-password password})
+            verification-token (second
+                                (re-find #"verification-token=([^\"]+)"
+                                         (:body-html (await-email sent))))
+            verification-response (command client base-a
+                                           {:command/name :user/verify-email
+                                            :verification-token verification-token})
             login-response (command client base-a
                                     {:command/name :user/login
                                      :email-address email-address
@@ -230,6 +280,7 @@
                            (re-pattern (str "^" cookie-a "=([^;]+)"))
                            set-cookie))]
         (is (= 200 (:status sign-up-response)))
+        (is (= 200 (:status verification-response)))
         (is (= 200 (:status login-response)))
         (is (string? token))
         (core/stop system-a)

@@ -22,6 +22,7 @@ rule Login {
     requires: exists account
     requires: account.active
     requires: account.password = password
+    requires: account.verified
     ensures: LoggedIn(account)
 }
 
@@ -44,6 +45,13 @@ rule VerifyEmail {
     ensures: account.verification_token = null
 }
 
+rule RequestEmailVerification {
+    when: RequestEmailVerification(account, token)
+    requires: exists account
+    requires: not account.verified
+    ensures: account.verification_token = token
+}
+
 rule RequestPasswordReset {
     when: RequestPasswordReset(account, token)
     requires: exists account
@@ -60,13 +68,17 @@ rule ResetPassword {
 surface SignIn {
     facing account: Account
     exposes: account.email
-    provides: Login(account, password)
+    provides:
+        Login(account, password)
+        RequestEmailVerification(account, token)
 }
 
 surface SignUp {
     facing account: Account
     exposes: account.email
-    provides: SignUp(email, password)
+    provides:
+        SignUp(email, password)
+        RequestEmailVerification(account, token)
 }
 
 surface ForgotPassword {

@@ -10,6 +10,8 @@
 (defn login! [credentials] (rf/dispatch [::events/login credentials]))
 (defn logout! [] (rf/dispatch [::events/logout]))
 (defn sign-up! [account] (rf/dispatch [::events/sign-up account]))
+(defn request-email-verification! [email]
+  (rf/dispatch [::events/request-email-verification email]))
 (defn request-password-reset! [email] (rf/dispatch [::events/request-password-reset email]))
 (defn verify-email! [token] (rf/dispatch [::events/verify-email token]))
 (defn reset-password! [token password] (rf/dispatch [::events/reset-password token password]))

@@ -74,6 +74,8 @@
                        [:password ::password]]
    :user/verify-email [:map
                        [:verification-token :string]]
+   :user/request-email-verification [:map
+                                     [:email-address ::email]]
    :user/request-password-reset [:map
                                  [:email-address ::email]]
    :user/reset-password [:map

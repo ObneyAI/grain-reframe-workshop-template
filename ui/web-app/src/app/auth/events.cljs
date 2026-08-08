@@ -94,6 +94,17 @@
                   :on-failure [::operation-failed]}))))
 
 (rf/reg-event-fx
+ ::request-email-verification
+ (fn [{:keys [db]} [_ email-address]]
+   (merge
+    {:db (begin db)}
+    (api/command {:name :user/request-email-verification
+                  :params {:email-address email-address}
+                  :on-success [::operation-succeeded
+                               "If an unverified account exists, a new verification email has been sent."]
+                  :on-failure [::operation-failed]}))))
+
+(rf/reg-event-fx
  ::verify-email
  (fn [{:keys [db]} [_ verification-token]]
    (merge

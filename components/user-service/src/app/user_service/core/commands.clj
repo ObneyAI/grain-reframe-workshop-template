@@ -49,7 +49,8 @@
 (defn make-email-verification-token
   [{:keys [jwt-secret]} user]
   (jwt/sign {:payload {:user-id (str (:user/id user))
-                       :email (:user/email-address user)}
+                       :email (:user/email-address user)
+                       :token-id (str (random-uuid))}
              :secret jwt-secret
              :expire-in [24 :hours]}))
 
@@ -96,6 +97,7 @@
   (let [{user-id :user/id
          stored-password :user/password
          active? :user/active
+         email-verified? :user/email-verified
          :as user} (rm/user-by-email context email-address)]
     (cond
       (nil? user)
@@ -106,6 +108,9 @@
 
       (false? active?)
       (forbidden "Account is inactive.")
+
+      (not (true? email-verified?))
+      (forbidden "Verify your email before signing in.")
 
       :else
       {:command-result/events
@@ -174,6 +179,25 @@
          :command/result {:email-verified true}}))
     (catch Exception _e
       (conflict "Email verification link is invalid."))))
+
+(defcommand :user request-email-verification
+  {:authorized? (constantly true)
+   :grain.event-model/reads #{:user/users}
+   :grain.event-model/produces #{:user/email-verification-requested}}
+  [{{:keys [email-address]} :command :as context}]
+  (if-let [user (rm/user-by-email context email-address)]
+    (if (true? (:user/email-verified user))
+      {:command/result {:verification-requested true}}
+      (let [user-id (:user/id user)
+            verification-token (make-email-verification-token context user)]
+        {:command-result/events
+         [(make-event {:type :user/email-verification-requested
+                       :tags #{[:user user-id]}
+                       :body {:user-id user-id
+                              :email-address (:user/email-address user)
+                              :verification-token verification-token}})]
+         :command/result {:verification-requested true}}))
+    {:command/result {:verification-requested true}}))
 
 (defcommand :user request-password-reset
   {:authorized? (constantly true)

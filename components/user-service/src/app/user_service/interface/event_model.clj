@@ -23,7 +23,7 @@
      :grain/allium [{:spec "components/user-service/user-service.allium" :kind :rule :name "SignUp"}]}
 
     :user/login
-    {:description "Authenticates an active account by email + password and issues a session token."
+    {:description "Authenticates an active, email-verified account by email + password and issues a session token."
      :schema [:map
               [:email-address [:string {:min 1 :error/message "Email is required"}]]
               [:password [:string {:min 1 :error/message "Password is required"}]]]
@@ -51,6 +51,13 @@
      :reads #{:user/users}
      :produces #{:user/email-verified}
      :grain/allium [{:spec "components/user-service/user-service.allium" :kind :rule :name "VerifyEmail"}]}
+
+    :user/request-email-verification
+    {:description "Requests a fresh verification link without revealing whether an unverified account exists."
+     :schema [:map [:email-address ::s/email]]
+     :reads #{:user/users}
+     :produces #{:user/email-verification-requested}
+     :grain/allium [{:spec "components/user-service/user-service.allium" :kind :rule :name "RequestEmailVerification"}]}
 
     :user/request-password-reset
     {:description "Requests a password reset; emits a reset-requested event when the email matches an account."
@@ -124,12 +131,12 @@
    {:user/sign-in
     {:description "Sign-in page: lets a returning user authenticate."
      :queries #{}
-     :commands #{:user/login}
+     :commands #{:user/login :user/request-email-verification}
      :grain/allium [{:spec "components/user-service/user-service.allium" :kind :surface :name "SignIn"}]}
     :user/sign-up
     {:description "Create-account page: registers a new user."
      :queries #{}
-     :commands #{:user/sign-up}
+     :commands #{:user/sign-up :user/request-email-verification}
      :grain/allium [{:spec "components/user-service/user-service.allium" :kind :surface :name "SignUp"}]}
     :user/forgot-password
     {:description "Forgot-password page: requests a reset link."

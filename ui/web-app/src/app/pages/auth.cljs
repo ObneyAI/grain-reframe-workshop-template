@@ -38,6 +38,11 @@
                        :error (:password errors)
                        :autocomplete "current-password" :on-change set-password!})
           ($ ui/submit-button {:busy? busy? :label "Sign in" :busy-label "Signing in…"})
+          ($ :button {:type "button"
+                      :class "w-full text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-50"
+                      :disabled (or busy? (empty? email))
+                      :on-click #(auth/request-email-verification! email)}
+             "Resend verification email")
           ($ :div {:class "flex justify-between text-sm"}
              ($ :a {:class "underline-offset-4 hover:underline" :href "/auth/forgot-password"} "Forgot password?")
              ($ :a {:class "text-primary underline-offset-4 hover:underline" :href "/auth/sign-up"} "Create account"))))))
@@ -84,6 +89,11 @@
                        :error (:confirm-password errors)
                        :autocomplete "new-password" :on-change set-confirm!})
           ($ ui/submit-button {:busy? busy? :label "Create account" :busy-label "Creating…"})
+          ($ :button {:type "button"
+                      :class "w-full text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-50"
+                      :disabled (or busy? (empty? email))
+                      :on-click #(auth/request-email-verification! email)}
+             "Resend verification email")
           ($ :p {:class "text-center text-sm text-muted-foreground"}
              "Already registered? "
              ($ :a {:class "text-primary underline-offset-4 hover:underline" :href "/auth/sign-in"} "Sign in"))))))
