@@ -1,0 +1,3 @@
+{:tasks
+ {dev {:doc "Development data lifecycle: bb dev reset|seed [options]"
+       :task (apply shell "bb" "scripts/dev_data.bb" *command-line-args*)}}}

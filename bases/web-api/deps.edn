@@ -1,0 +1,24 @@
+{:paths ["src" "resources"]
+ :deps {nrepl/nrepl {:mvn/version "1.3.1"}
+        integrant/integrant {:mvn/version "1.0.1"}
+        org.clojure/data.json {:mvn/version "2.5.1"}
+
+        obneyai/grain-core-v2
+        {:git/url "https://github.com/ObneyAI/grain.git"
+         :deps/root "projects/grain-core-v2"
+         :git/sha "7d35b3fc5743a5ab68f4e21ab21367c93f0eb614"}
+
+        obneyai/grain-event-store-sqlite-v3
+        {:git/url "https://github.com/ObneyAI/grain.git"
+         :deps/root "projects/grain-event-store-sqlite-v3"
+         :git/sha "7d35b3fc5743a5ab68f4e21ab21367c93f0eb614"}
+
+        ;; grain-code-agent-tools transitively includes the event-model +
+        ;; event-model-validator components, so defeventmodel /
+        ;; validate-event-model / verify-or-throw! are all on the classpath here.
+        obneyai/grain-code-agent-tools
+        {:git/url "https://github.com/ObneyAI/grain.git"
+         :deps/root "projects/grain-code-agent-tools"
+         :git/sha "7d35b3fc5743a5ab68f4e21ab21367c93f0eb614"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

@@ -1,0 +1,98 @@
+-- allium: 3
+
+entity Account {
+    email: String
+    password: String
+    active: Boolean
+    verified: Boolean
+    token_version: Integer
+    verification_token: String?
+    reset_token: String?
+}
+
+rule SignUp {
+    when: SignUp(email, password)
+    requires: not exists Account{email: email}
+    ensures: Account.created(email: email, password: password, active: true,
+                             verified: false, token_version: 0)
+}
+
+rule Login {
+    when: Login(account, password)
+    requires: exists account
+    requires: account.active
+    requires: account.password = password
+    ensures: LoggedIn(account)
+}
+
+rule Logout {
+    when: Logout(account)
+    requires: exists account
+    ensures: account.token_version = account.token_version + 1
+}
+
+rule SetPassword {
+    when: SetPassword(account, password)
+    requires: exists account
+    ensures: account.password = password
+}
+
+rule VerifyEmail {
+    when: VerifyEmail(account, token)
+    requires: account.verification_token = token
+    ensures: account.verified = true
+    ensures: account.verification_token = null
+}
+
+rule RequestPasswordReset {
+    when: RequestPasswordReset(account, token)
+    requires: exists account
+    ensures: account.reset_token = token
+}
+
+rule ResetPassword {
+    when: ResetPassword(account, token, password)
+    requires: account.reset_token = token
+    ensures: account.password = password
+    ensures: account.reset_token = null
+}
+
+surface SignIn {
+    facing account: Account
+    exposes: account.email
+    provides: Login(account, password)
+}
+
+surface SignUp {
+    facing account: Account
+    exposes: account.email
+    provides: SignUp(email, password)
+}
+
+surface ForgotPassword {
+    facing account: Account
+    exposes: account.email
+    provides: RequestPasswordReset(account, token)
+}
+
+surface VerifyEmail {
+    facing account: Account
+    exposes: account.verified
+    provides: VerifyEmail(account, token)
+}
+
+surface ResetPassword {
+    facing account: Account
+    exposes: account.email
+    provides: ResetPassword(account, token, password)
+}
+
+surface AccountSettings {
+    facing account: Account
+    exposes:
+        account.email
+        account.verified
+    provides:
+        SetPassword(account, password)
+        Logout(account)
+}

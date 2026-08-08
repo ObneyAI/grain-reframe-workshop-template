@@ -1,0 +1,33 @@
+/target
+/.cpcache
+**/.cpcache
+/storage
+/.dev-data
+/.dev-env
+.env
+.nrepl-port
+/node_modules
+/ui/web-app/node_modules
+/ui/web-app/.shadow-cljs
+/ui/web-app/out
+/ui/shadcn/dist
+/resources/public/css/main.css
+/bases/web-api/resources/public/css/main.css
+/bases/web-api/resources/public/js
+.DS_Store
+.clj-kondo/.cache/
+
+# Agent/build verification artifacts
+builder.log
+planner-*.log
+verify-*.log
+sandbox.log
+.playwright-mcp/
+/playwright-report/
+/test-results/
+
+# Root-level screenshots captured during verification
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp

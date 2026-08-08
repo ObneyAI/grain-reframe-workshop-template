@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+load_dotenv() {
+  local env_file="$repo_root/.env"
+  [[ -f "$env_file" ]] || return 0
+
+  local line key value
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    [[ -z "$line" || "$line" == \#* || "$line" != *=* ]] && continue
+    line="${line#export }"
+    key="${line%%=*}"
+    value="${line#*=}"
+    key="${key//[[:space:]]/}"
+    [[ -z "$key" || -n "${!key:-}" ]] && continue
+    value="${value%\"}"; value="${value#\"}"
+    value="${value%\'}"; value="${value#\'}"
+    export "$key=$value"
+  done < "$env_file"
+}
+
+load_dotenv
+
+if ! java -version >/dev/null 2>&1 && [[ -x /opt/homebrew/opt/openjdk@21/bin/java ]]; then
+  export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+fi
+
+app_port="${APP_HTTP_PORT:-8080}"
+dev_hostname="${APP_DEV_HOSTNAME:-reframe-template}"
+dev_state_dir="${DEV_ENV_DIR:-.dev-env}"
+pid_file="$dev_state_dir/dev.pid"
+log_file="$dev_state_dir/dev.log"
+state_file="$dev_state_dir/state"
+health_url="http://localhost:$app_port/healthcheck"
+direct_url="http://localhost:$app_port"
+public_url="${APP_BASE_URL:-$direct_url}"
+
+command_name="${1:-status}"
+[[ $# -eq 0 ]] || shift
+force=0
+follow=0
+for argument in "$@"; do
+  case "$argument" in
+    --force|-f) force=1 ;;
+    --follow|-F) follow=1 ;;
+    *)
+      echo "dev: unknown argument: $argument" >&2
+      exit 2
+      ;;
+  esac
+done
+
+log() {
+  printf '%s\n' "$*"
+}
+
+die() {
+  printf 'dev: %s\n' "$*" >&2
+  exit 1
+}
+
+ensure_state_dir() {
+  mkdir -p "$dev_state_dir"
+}
+
+pid_from_file() {
+  if [[ -f "$pid_file" ]]; then
+    tr -d '[:space:]' < "$pid_file"
+  fi
+  return 0
+}
+
+is_alive() {
+  local process_id="${1:-}"
+  [[ -n "$process_id" ]] && kill -0 "$process_id" 2>/dev/null
+}
+
+children_of() {
+  pgrep -P "$1" 2>/dev/null || true
+}
+
+kill_tree() {
+  local process_id="$1"
+  local child_id
+  for child_id in $(children_of "$process_id"); do
+    kill_tree "$child_id"
+  done
+  kill "$process_id" 2>/dev/null || true
+}
+
+wait_for_exit() {
+  local process_id="$1"
+  local elapsed=0
+  while is_alive "$process_id" && [[ "$elapsed" -lt 10 ]]; do
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  if is_alive "$process_id"; then
+    kill -KILL "$process_id" 2>/dev/null || true
+  fi
+}
+
+listener_pids() {
+  lsof -nP -tiTCP:"$app_port" -sTCP:LISTEN 2>/dev/null || true
+}
+
+clear_port_or_fail() {
+  local listeners
+  listeners="$(listener_pids)"
+  [[ -n "$listeners" ]] || return 0
+
+  if [[ "$force" -ne 1 ]]; then
+    printf 'dev: port %s is already occupied by:\n' "$app_port" >&2
+    ps -o pid= -o command= -p $(printf '%s\n' "$listeners" | tr '\n' ' ') >&2 || true
+    printf 'Use ./scripts/dev up --force only when those listeners are safe to stop.\n' >&2
+    exit 1
+  fi
+
+  local process_id
+  for process_id in $listeners; do
+    log "Stopping listener $process_id on port $app_port..."
+    kill_tree "$process_id"
+    wait_for_exit "$process_id"
+  done
+}
+
+ensure_tools() {
+  local missing=()
+  local tool_name
+  for tool_name in curl java clojure node npm; do
+    command -v "$tool_name" >/dev/null 2>&1 || missing+=("$tool_name")
+  done
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    die "missing required development tools: ${missing[*]}. See README.md#prerequisites."
+  fi
+}
+
+ensure_dependencies() {
+  if [[ ! -d node_modules ]]; then
+    log "Installing locked JavaScript dependencies..."
+    npm ci
+  fi
+}
+
+configure_public_url() {
+  local use_portless="${APP_DEV_PORTLESS:-true}"
+  local portless_url="https://$dev_hostname.localhost"
+  if [[ "$use_portless" != "false" ]] && command -v portless >/dev/null 2>&1; then
+    portless proxy start >/dev/null 2>&1 || true
+    if portless alias "$dev_hostname" "$app_port" --force >/dev/null 2>&1; then
+      if [[ -z "${APP_BASE_URL:-}" || "$APP_BASE_URL" == "$portless_url" ]]; then
+        public_url="$portless_url"
+      fi
+      log "Portless: $portless_url -> localhost:$app_port"
+    else
+      log "Portless could not register $dev_hostname.localhost." >&2
+      if [[ -z "${APP_BASE_URL:-}" || "$APP_BASE_URL" == "$portless_url" ]]; then
+        public_url="$direct_url"
+        log "Using $direct_url instead." >&2
+      fi
+    fi
+  elif [[ -n "${APP_BASE_URL:-}" ]]; then
+    public_url="$APP_BASE_URL"
+  else
+    public_url="$direct_url"
+  fi
+  export APP_BASE_URL="$public_url"
+  export APP_HTTP_PORT="$app_port"
+}
+
+write_state() {
+  ensure_state_dir
+  {
+    printf 'APP_HTTP_PORT=%q\n' "$app_port"
+    printf 'APP_BASE_URL=%q\n' "$public_url"
+    printf 'HEALTH_URL=%q\n' "$health_url"
+  } > "$state_file"
+}
+
+read_state() {
+  if [[ -f "$state_file" ]]; then
+    # shellcheck disable=SC1090
+    . "$state_file"
+    app_port="${APP_HTTP_PORT:-$app_port}"
+    public_url="${APP_BASE_URL:-$public_url}"
+    health_url="${HEALTH_URL:-$health_url}"
+  fi
+}
+
+run_detached() {
+  if command -v setsid >/dev/null 2>&1; then
+    nohup setsid "$@" >> "$log_file" 2>&1 < /dev/null &
+  else
+    nohup env PERL_BADLANG=0 perl -MPOSIX=setsid \
+      -e 'setsid() or die "setsid: $!"; exec @ARGV or die "exec: $!"' \
+      "$@" >> "$log_file" 2>&1 < /dev/null &
+  fi
+  detached_pid="$!"
+}
+
+start_stack() {
+  ensure_state_dir
+  : > "$log_file"
+  log "Building the shadcn bridge before watchers start..."
+  npm run build --workspace @grain/shadcn
+  run_detached env APP_HTTP_PORT="$app_port" APP_BASE_URL="$public_url" \
+    npx concurrently --kill-others --names frontend,backend \
+      "npm run dev:watch" \
+      "clojure -M:dev -m app.dev.main"
+  printf '%s\n' "$detached_pid" > "$pid_file"
+}
+
+health_ok() {
+  curl --silent --show-error --fail "$health_url" >/dev/null 2>&1
+}
+
+wait_for_health() {
+  local process_id="$1"
+  local timeout="${DEV_ENV_HEALTH_TIMEOUT:-180}"
+  local elapsed=0
+  while [[ "$elapsed" -lt "$timeout" ]]; do
+    if health_ok; then
+      log "Healthy: $public_url"
+      log "Health:  $health_url"
+      return 0
+    fi
+    if ! is_alive "$process_id"; then
+      tail -n 120 "$log_file" >&2 || true
+      log "dev: development stack exited before becoming healthy" >&2
+      return 1
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  tail -n 120 "$log_file" >&2 || true
+  log "dev: timed out waiting for $health_url" >&2
+  return 1
+}
+
+up() {
+  local process_id
+  ensure_tools
+  ensure_dependencies
+  configure_public_url
+  write_state
+  process_id="$(pid_from_file)"
+  if is_alive "$process_id"; then
+    if health_ok; then
+      log "Development stack is already healthy ($process_id)."
+      log "Application: $public_url"
+      return 0
+    fi
+    log "Managed development stack is unhealthy; restarting it."
+    kill_tree "$process_id"
+    wait_for_exit "$process_id"
+    rm -f "$pid_file"
+  fi
+  clear_port_or_fail
+  start_stack
+  if ! wait_for_health "$detached_pid"; then
+    down
+    return 1
+  fi
+}
+
+down() {
+  local process_id
+  process_id="$(pid_from_file)"
+  if is_alive "$process_id"; then
+    log "Stopping development stack ($process_id)..."
+    kill_tree "$process_id"
+    wait_for_exit "$process_id"
+  fi
+  rm -f "$pid_file" .nrepl-port
+  log "Development stack stopped."
+}
+
+status() {
+  local process_id process_state health_state
+  read_state
+  process_id="$(pid_from_file)"
+  if is_alive "$process_id"; then process_state="running ($process_id)"; else process_state="stopped"; fi
+  if health_ok; then health_state="healthy"; else health_state="unhealthy"; fi
+  cat <<EOF
+stack:       $process_state
+health:      $health_state
+application: $public_url
+direct:      http://localhost:$app_port
+logs:        $dev_state_dir/dev.log
+EOF
+}
+
+show_logs() {
+  ensure_state_dir
+  if [[ "$follow" -eq 1 ]]; then
+    touch "$log_file"
+    exec tail -n 120 -f "$log_file"
+  fi
+  tail -n 120 "$log_file" 2>/dev/null || true
+}
+
+foreground() {
+  ensure_tools
+  ensure_dependencies
+  configure_public_url
+  write_state
+  clear_port_or_fail
+  log "Application: $public_url"
+  log "Health:      $health_url"
+  log "nREPL:       optional via ./scripts/nrepl.sh (localhost:7888)"
+  log "Building the shadcn bridge before watchers start..."
+  npm run build --workspace @grain/shadcn
+  exec npx concurrently --kill-others --names frontend,backend \
+    "npm run dev:watch" \
+    "clojure -M:dev -m app.dev.main"
+}
+
+case "$command_name" in
+  up) up ;;
+  down) down ;;
+  restart) down; up ;;
+  status) status ;;
+  logs) show_logs ;;
+  foreground) foreground ;;
+  *)
+    cat >&2 <<'EOF'
+Usage: ./scripts/dev <command> [options]
+
+Commands:
+  up [--force]       Start the complete stack in the background and wait for health.
+  down               Stop the managed development stack.
+  restart [--force]  Restart the managed development stack.
+  status             Show process, health, URL, and log state.
+  logs [--follow]    Show or follow the combined development log.
+  foreground         Run the complete stack in the foreground.
+EOF
+    exit 2
+    ;;
+esac

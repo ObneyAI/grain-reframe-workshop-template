@@ -1,0 +1,10 @@
+;; Grain and UIx dependencies export their macro analysis under imports/.
+;; The event-model macro is project-owned here because it is not exported yet.
+{:linters
+ {:clojure-lsp/unused-public-var
+  {:exclude-when-defined-by
+   #{ai.obney.grain.query-processor.interface/defquery
+     ai.obney.grain.event-model.interface/defeventmodel}}}
+ :hooks
+ {:analyze-call
+  {ai.obney.grain.event-model.interface/defeventmodel hooks.grain/defeventmodel}}}

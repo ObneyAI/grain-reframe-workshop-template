@@ -1,0 +1,4 @@
+{:paths ["src"]
+ :deps {buddy/buddy-sign {:mvn/version "3.5.351"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

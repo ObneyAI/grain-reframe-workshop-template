@@ -1,0 +1,13 @@
+# Keep the image build context (the seed) small + reproducible — these get
+# regenerated in the image (npm install, css:build, clojure -P / cpcache).
+node_modules
+storage
+.cpcache
+target
+.git
+.nrepl-port
+*.log
+bases/web-api/resources/public/css/main.css
+bases/web-api/resources/public/js
+ui/web-app/.shadow-cljs
+ui/web-app/out

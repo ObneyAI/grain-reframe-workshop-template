@@ -1,0 +1,24 @@
+{
+  "name": "grain-reframe-workshop-template",
+  "private": true,
+  "workspaces": [
+    "ui/web-app",
+    "ui/shadcn"
+  ],
+  "scripts": {
+    "dev": "./scripts/dev foreground",
+    "dev:up": "./scripts/dev up",
+    "dev:down": "./scripts/dev down",
+    "dev:status": "./scripts/dev status",
+    "dev:watch": "concurrently -k -n shadcn,app 'npm run dev --workspace @grain/shadcn' 'npm run dev --workspace ui/web-app'",
+    "build": "npm run build --workspace @grain/shadcn && npm run build --workspace ui/web-app",
+    "test:browser": "npm run test:browser:development && npm run test:browser:production",
+    "test:browser:development": "./scripts/verify_browser.sh development",
+    "test:browser:production": "./scripts/verify_browser.sh production",
+    "test:ui": "npm test --workspace @grain/shadcn && npm test --workspace ui/web-app",
+    "shadcn:add": "npx --no-install shadcn add -c ui/shadcn"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}

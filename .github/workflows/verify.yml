@@ -1,0 +1,87 @@
+name: Verify starter
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Full clone-ready gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the starter
+        uses: actions/checkout@v7
+
+      - name: Install Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Clojure tools
+        uses: DeLaGuardo/setup-clojure@13.6.1
+        with:
+          cli: 1.12.4.1602
+          bb: 1.12.215
+          clj-kondo: 2026.05.25
+
+      - name: Install Node 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install Allium 3.5.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/allium.tar.gz"
+          bin_dir="$RUNNER_TEMP/allium-bin"
+          curl --fail --location --silent --show-error \
+            --output "$archive" \
+            https://github.com/juxt/allium-tools/releases/download/v3.5.3/allium-x86_64-unknown-linux-gnu.tar.gz
+          echo "bd14f8b323c4e233c153c8873fcba46f779b4ffbc84b0d22af0a5d34b7b1f5b6  $archive" \
+            | sha256sum --check --strict
+          mkdir -p "$bin_dir"
+          tar -xzf "$archive" -C "$bin_dir"
+          echo "$bin_dir" >> "$GITHUB_PATH"
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run specification and build gate
+        run: ./scripts/verify-specs.sh
+
+      - name: Run development browser contract
+        run: npm run test:browser:development
+
+      - name: Run production browser contract
+        run: npm run test:browser:production
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
