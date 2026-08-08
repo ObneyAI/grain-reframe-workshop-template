@@ -53,6 +53,7 @@ port="$(bun -e '
   });
 ')"
 base_url="http://127.0.0.1:$port"
+email_capture_file="$run_dir/emails.edn"
 
 echo "==> Building $mode browser assets"
 bun run --cwd ui/shadcn build
@@ -72,6 +73,8 @@ env \
   APP_BASE_URL="$base_url" \
   APP_STORAGE_DIR="$run_dir/storage" \
   APP_AUTH_COOKIE_NAME="grain-reframe-template-browser-$mode" \
+  APP_EMAIL_PROVIDER=capture \
+  APP_EMAIL_CAPTURE_FILE="$email_capture_file" \
   clojure -M:dev -m app.dev.main >"$run_dir/backend.log" 2>&1 &
 backend_pid="$!"
 
@@ -99,7 +102,9 @@ if [[ "$ready" != "true" ]]; then
 fi
 
 echo "==> Running $mode browser contract"
-if ! PLAYWRIGHT_BASE_URL="$base_url" bunx --no-install playwright test; then
+if ! PLAYWRIGHT_BASE_URL="$base_url" \
+     PLAYWRIGHT_EMAIL_CAPTURE_FILE="$email_capture_file" \
+     bunx --no-install playwright test; then
   echo "Backend log:" >&2
   sed -n '1,240p' "$run_dir/backend.log" >&2
   if [[ -f "$run_dir/shadow.log" ]]; then

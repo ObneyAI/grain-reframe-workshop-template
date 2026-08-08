@@ -102,7 +102,11 @@
     (conj "APP_EMAIL_FROM must not be blank")
 
     (nil? (:email-provider values))
-    (conj "APP_EMAIL_PROVIDER must be logger, smtp, or ses")
+    (conj "APP_EMAIL_PROVIDER must be logger, capture, smtp, or ses")
+
+    (and (= :capture (:email-provider values))
+         (not (present? (:email-capture-file values))))
+    (conj "APP_EMAIL_CAPTURE_FILE is required when APP_EMAIL_PROVIDER=capture")
 
     (not (and (:smtp-port values) (<= 1 (:smtp-port values) 65535)))
     (conj "APP_SMTP_PORT must be an integer from 1 through 65535")
@@ -209,7 +213,8 @@
                                  "noreply@grain-reframe-workshop-template.local")
                  :email-provider (parse-choice (get environment-variables "APP_EMAIL_PROVIDER")
                                                "logger"
-                                               #{:logger :smtp :ses})
+                                               #{:logger :capture :smtp :ses})
+                 :email-capture-file (get environment-variables "APP_EMAIL_CAPTURE_FILE")
                  :smtp-host (or (get environment-variables "APP_SMTP_HOST") "localhost")
                  :smtp-port (parse-integer (or (get environment-variables "APP_SMTP_PORT") "1025"))
                  :file-store-provider

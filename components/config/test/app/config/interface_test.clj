@@ -23,6 +23,19 @@
   (is (= "http://localhost:9191"
          (:app-base-url (config/load {"APP_HTTP_PORT" "9191"})))))
 
+(deftest browser-test-email-capture-requires-an-explicit-file
+  (let [configuration (config/load {"APP_EMAIL_PROVIDER" "capture"
+                                    "APP_EMAIL_CAPTURE_FILE" "/tmp/browser-emails.edn"})]
+    (is (= :capture (:email-provider configuration)))
+    (is (= "/tmp/browser-emails.edn" (:email-capture-file configuration))))
+
+  (let [failure (try
+                  (config/load {"APP_EMAIL_PROVIDER" "capture"})
+                  nil
+                  (catch clojure.lang.ExceptionInfo error error))]
+    (is (some #{"APP_EMAIL_CAPTURE_FILE is required when APP_EMAIL_PROVIDER=capture"}
+              (:config/errors (ex-data failure))))))
+
 (deftest invalid-values-fail-together-at-the-configuration-interface
   (let [failure (try
                   (config/load {"APP_ENV" "elsewhere"

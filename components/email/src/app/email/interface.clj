@@ -1,6 +1,7 @@
 (ns app.email.interface
   (:refer-clojure :exclude [send])
-  (:require [clojure.string :as string]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as string]
             [com.brunobonacci.mulog :as u]))
 
 (defprotocol Email
@@ -52,3 +53,24 @@
   ([] (logger-email nil))
   ([sent]
    (->LoggerEmail sent)))
+
+(defrecord FileCaptureEmail [path write-lock]
+  Email
+  (send [_ args]
+    (let [message (normalize-message args)]
+      (io/make-parents path)
+      (locking write-lock
+        (spit path (str (pr-str message) "\n") :append true))
+      (u/log ::email-captured-to-file
+             :email/to (:to message)
+             :email/subject (:subject message)
+             :email/has-text? (boolean (:body-text message))
+             :email/has-html? (boolean (:body-html message)))
+      {:email/status :captured
+       :email/message message})))
+
+(defn file-capture-email
+  "Append provider-neutral messages as one EDN value per line. This adapter is
+   intended for isolated browser tests that need to follow links from email."
+  [path]
+  (->FileCaptureEmail path (Object.)))

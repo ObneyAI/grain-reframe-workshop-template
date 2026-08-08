@@ -1,4 +1,26 @@
 import { expect, test, type ConsoleMessage, type Page } from "@playwright/test"
+import { readFile } from "node:fs/promises"
+
+async function latestVerificationUrl(email: string, expectedCount: number) {
+  const captureFile = process.env.PLAYWRIGHT_EMAIL_CAPTURE_FILE
+  if (!captureFile) throw new Error("PLAYWRIGHT_EMAIL_CAPTURE_FILE is required")
+
+  let latestUrl: string | undefined
+  await expect
+    .poll(async () => {
+      const contents = await readFile(captureFile, "utf8")
+      const urls = contents
+        .split("\n")
+        .filter((line) => line.includes(email))
+        .flatMap((line) => [...line.matchAll(/href=\\"([^"\\]+verification-token=[^"\\]+)\\"/g)])
+        .map((match) => match[1])
+      latestUrl = urls.at(-1)
+      return urls.length
+    }, { message: `wait for verification email ${expectedCount}` })
+    .toBeGreaterThanOrEqual(expectedCount)
+  if (!latestUrl) throw new Error(`Verification email ${expectedCount} had no URL`)
+  return latestUrl
+}
 
 function collectBrowserFailures(page: Page) {
   const failures: string[] = []
@@ -72,12 +94,29 @@ test("the clone-ready browser contract works without console failures", async ({
   await page.getByRole("button", { name: "Create account" }).click()
   await expect(page.getByText("Account created. Check your email to verify it.")).toBeVisible()
 
+  await page.getByRole("button", { name: "Resend verification email" }).click()
+  await expect(
+    page.getByText("If an unverified account exists, a new verification email has been sent."),
+  ).toBeVisible()
+  const verificationUrl = await latestVerificationUrl(email, 2)
+
   allowNextResponse("POST", "/command", 409)
   await page.getByRole("button", { name: "Create account" }).click()
   await expect(page.locator("#sign-up-email-error")).toHaveText(
     "An account already exists for this email.",
   )
   await expect(page.locator("#sign-up-email")).toBeFocused()
+
+  await page.goto(`/auth/sign-in?return-to=${encodeURIComponent(protectedPath)}`)
+  await page.locator("#sign-in-email").fill(email)
+  await page.locator("#sign-in-password").fill(password)
+  allowNextResponse("POST", "/command", 403)
+  await page.getByRole("button", { name: "Sign in" }).click()
+  await expect(page.getByText("Verify your email before signing in.")).toBeVisible()
+  await expect(page).toHaveURL(/\/auth\/sign-in/)
+
+  await page.goto(verificationUrl)
+  await expect(page.getByText("Email verified. You can sign in.")).toBeVisible()
 
   await page.goto(`/auth/sign-in?return-to=${encodeURIComponent(protectedPath)}`)
   await page.locator("#sign-in-email").fill(email)

@@ -88,7 +88,7 @@
   "Build the Integrant system from validated application configuration."
   [{:keys [app-base-url auth-cookie-name aws-endpoint aws-region cookie-secure?
            crypto-key crypto-provider email-client email-from email-provider
-           file-store-provider http-port jwt-secret kms-key-id locale log-destination
+           email-capture-file file-store-provider http-port jwt-secret kms-key-id locale log-destination
            log-file s3-bucket smtp-host smtp-port storage-dir tenant-id time-zone]
     :as configuration}]
   {::logger {:destination log-destination
@@ -99,6 +99,7 @@
 
    ::email-client {:adapter email-client
                    :provider email-provider
+                   :capture-file email-capture-file
                    :smtp-host smtp-host
                    :smtp-port smtp-port
                    :aws-region aws-region}
@@ -303,10 +304,11 @@
   (observability/metrics))
 
 (defmethod ig/init-key ::email-client
-  [_ {:keys [adapter provider smtp-host smtp-port aws-region]}]
+  [_ {:keys [adapter provider capture-file smtp-host smtp-port aws-region]}]
   (or adapter
       (case provider
         :logger (email/logger-email)
+        :capture (email/file-capture-email capture-file)
         :smtp (email-smtp/smtp-email {:host smtp-host :port smtp-port})
         :ses (email-ses/ses-email {:region aws-region}))))
 
