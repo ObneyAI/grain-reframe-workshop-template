@@ -202,6 +202,18 @@ wait_for_infrastructure() {
   return 1
 }
 
+wait_for_mailpit() {
+  local elapsed=0 timeout="${DEV_ENV_INFRA_TIMEOUT:-90}"
+  while [[ "$elapsed" -lt "$timeout" ]]; do
+    if curl --silent --fail "http://localhost:$mailpit_ui_port/readyz" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  return 1
+}
+
 start_infrastructure() {
   if [[ "${APP_DEV_INFRA:-true}" == "false" ]]; then
     log "Development infrastructure disabled; using configured in-process adapters."
@@ -350,6 +362,36 @@ down() {
   log "Development stack stopped."
 }
 
+reset_mail() {
+  local container_id volume_name
+  if [[ "$force" -ne 1 ]]; then
+    die "reset-mail permanently deletes captured development email; rerun with --force"
+  fi
+  if ! infrastructure_available; then
+    die "Docker Compose is required to reset Mailpit"
+  fi
+
+  log "Resolving the Mailpit data volume..."
+  docker compose up -d mailpit
+  if ! wait_for_mailpit; then
+    die "Mailpit did not become ready before reset"
+  fi
+  container_id="$(docker compose ps -q mailpit)"
+  [[ -n "$container_id" ]] || die "could not resolve the Mailpit container"
+  volume_name="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' "$container_id")"
+  [[ -n "$volume_name" ]] || die "could not resolve Mailpit's /data volume"
+
+  log "Deleting Mailpit volume $volume_name..."
+  docker compose stop mailpit
+  docker compose rm --force mailpit
+  docker volume rm "$volume_name" >/dev/null
+  docker compose up -d mailpit
+  if ! wait_for_mailpit; then
+    die "Mailpit did not become ready after reset"
+  fi
+  log "Mailpit messages reset; the empty inbox is available at $mailbox_url"
+}
+
 status() {
   local process_id process_state health_state
   read_state
@@ -395,6 +437,7 @@ foreground() {
 case "$command_name" in
   up) up ;;
   down) down ;;
+  reset-mail) reset_mail ;;
   restart) down; up ;;
   status) status ;;
   logs) show_logs ;;
@@ -406,6 +449,7 @@ Usage: ./scripts/dev <command> [options]
 Commands:
   up [--force]       Start the complete stack in the background and wait for health.
   down               Stop the managed development stack.
+  reset-mail --force Permanently clear Mailpit messages and restart Mailpit.
   restart [--force]  Restart the managed development stack.
   status             Show process, health, URL, and log state.
   logs [--follow]    Show or follow the combined development log.
