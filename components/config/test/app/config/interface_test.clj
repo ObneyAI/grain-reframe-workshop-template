@@ -7,6 +7,8 @@
     (is (= :development (:environment configuration)))
     (is (= "Grain Re-frame Workshop Template" (:app-name configuration)))
     (is (= 8080 (:http-port configuration)))
+    (is (= 7888 (:nrepl-port configuration)))
+    (is (= ".nrepl-port" (:nrepl-port-file configuration)))
     (is (= "http://localhost:8080" (:app-base-url configuration)))
     (is (= "grain-reframe-workshop-template-session" (:auth-cookie-name configuration)))
     (is (= :logger (:email-provider configuration)))
@@ -22,6 +24,12 @@
 (deftest local-base-url-follows-the-configured-port
   (is (= "http://localhost:9191"
          (:app-base-url (config/load {"APP_HTTP_PORT" "9191"})))))
+
+(deftest development-nrepl-accepts-an-ephemeral-port
+  (let [configuration (config/load {"APP_NREPL_PORT" "0"
+                                    "APP_NREPL_PORT_FILE" "/tmp/test.nrepl-port"})]
+    (is (= 0 (:nrepl-port configuration)))
+    (is (= "/tmp/test.nrepl-port" (:nrepl-port-file configuration)))))
 
 (deftest browser-test-email-capture-requires-an-explicit-file
   (let [configuration (config/load {"APP_EMAIL_PROVIDER" "capture"

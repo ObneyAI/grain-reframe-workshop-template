@@ -142,9 +142,16 @@ When asked to start the app, run `./scripts/dev up`, then `./scripts/dev status`
 URL. Do not launch a duplicate foreground stack. Diagnose failures with `./scripts/dev logs`; use
 `./scripts/dev restart` after environment or system-level changes and `./scripts/dev down` when asked to
 stop it. Use `./scripts/dev foreground` only for an attached terminal or process supervisor.
+Mailpit messages persist across ordinary `restart` and `down` operations. Only run
+`./scripts/dev reset-mail --force` when the user explicitly wants the local inbox cleared.
 
-`./scripts/nrepl.sh` remains the separate interactive backend workflow; start the backend with
-`(app.web-api.core/start!)` there.
+Every local backend start also launches a loopback-only nREPL in the same JVM, writes `.nrepl-port`, and
+installs `grain-code-agent-tools`. When reasoning about live commands, events, projections, queries, read
+models, schemas, or runtime health, connect to that port and use `tools/catalog`, `tools/events`,
+`tools/projection`, `tools/invoke-query`, and `tools/diagnostics` before relying only on source inspection.
+State clearly whether a claim was confirmed live or inferred from source. `./scripts/nrepl.sh` remains only
+as a standalone CIDER/refactor-nrepl workflow when the managed stack is not running; start the backend with
+`(app.web-api.core/start!)` there if needed.
 
 From the REPL:
 
@@ -181,7 +188,8 @@ Run `./scripts/verify-specs.sh`. It must pass:
 
 For routing, auth, shadcn, or release-readiness changes, also run `bun run test:browser`. It builds and
 tests both development and production frontend modes with isolated ports and storage, exercising health,
-direct auth loads, protected redirects and return paths, sign-up/login, home, query-driven routes, the
+direct auth loads, protected redirects and return paths, sign-up, required email verification/resend,
+login, home, query-driven routes, the
 questionnaire bridge, honest not-found behavior, and unexpected console/network failures.
 
 Then exercise any feature-specific acceptance checks not covered by automation. Confirm protected backend

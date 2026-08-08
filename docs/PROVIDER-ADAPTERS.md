@@ -15,6 +15,11 @@ Application code receives adapters through the Grain context and calls only thes
 - `app.crypto.interface` — encrypt and decrypt a versioned envelope.
 - `app.webhooks.interface` — verify, claim, process, audit, and replay deliveries.
 
+The isolated Playwright runner selects the email `capture` adapter and writes normalized messages to a
+temporary EDN file so it can follow verification links without depending on Docker. This adapter is for
+development/test only; production configuration requires SES. Normal local development uses Mailpit SMTP,
+whose SQLite-backed Docker volume survives ordinary stack restarts.
+
 ## Adding another provider
 
 1. Keep the existing interface provider-neutral; do not expose an SDK object or vendor response.

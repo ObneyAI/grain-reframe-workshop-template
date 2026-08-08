@@ -29,12 +29,13 @@ defaults. It fails if stale starter identity remains in executable configuration
 
 - Grain CQRS backend: commands → events → read models → queries.
 - SQLite event store and LMDB projection cache with memory-first infrastructure adapters.
-- Provider-neutral email with logger/test, Mailpit SMTP, and AWS SES adapters.
+- Provider-neutral email with logger/test capture, persistent Mailpit SMTP, and AWS SES adapters.
 - Provider-neutral files and presigned URLs with memory/test, S3, and LocalStack adapters.
 - Authenticated AES-GCM encryption with local-key and AWS KMS envelope-encryption adapters.
 - A webhook module for raw-body preservation, HMAC verification, event-ID idempotency, audit receipts,
   and failed-delivery replay.
-- Account foundation: sign-up, email verification, login/logout, password reset, HTTP-only sessions.
+- Account foundation: sign-up, required email verification with safe resend, login/logout, password reset,
+  and HTTP-only sessions.
 - Protected, anonymous-only, and public route policies with safe post-login return paths and explicit
   403, 404, session-loading, and application-error outcomes.
 - UIx + Re-frame + Reitit frontend styled with Tailwind CSS and shadcn Base UI.
@@ -104,9 +105,25 @@ coding agents alike:
 ./scripts/dev down
 ```
 
+The backend also starts a loopback-only nREPL in the same JVM, writes its actual port to `.nrepl-port`,
+and reports it from `./scripts/dev status`. The default is `127.0.0.1:7888`; set `APP_NREPL_PORT=0` to
+select a free port automatically. Because `grain-code-agent-tools` is installed during backend boot, an
+agent connected through that nREPL can inspect and exercise the exact live event store, registries,
+events, projections, commands, and queries serving the browser.
+
+Mailpit stores captured messages in SQLite on its Docker volume, so `restart` and `down` preserve the
+local inbox. The default keeps the newest 500 messages; override that with `APP_MAILPIT_MAX_MESSAGES`.
+To deliberately empty only the Mailpit inbox and restart that service, use the explicit destructive
+command:
+
+```bash
+./scripts/dev reset-mail --force
+```
+
 Use `bun run dev`, `./scripts/dev foreground`, or the compatibility adapters `./scripts/dev.sh` and
-`./portless.sh` when a foreground process is preferable. For interactive backend work, the separate nREPL
-workflow remains available:
+`./portless.sh` when a foreground process is preferable. Those paths use the same backend entry point and
+therefore include nREPL. A standalone editor-oriented nREPL with CIDER/refactor middleware remains
+available when the full managed stack is not running:
 
 ```bash
 ./scripts/nrepl.sh # nREPL, default 7888
@@ -140,7 +157,7 @@ Direct REPL/test starts default to logger email, memory files, and local AES-GCM
 
 | Capability | Local/test | Production | Configuration |
 |---|---|---|---|
-| Email | logger or Mailpit SMTP | AWS SES | `APP_EMAIL_PROVIDER` |
+| Email | logger, test file capture, or persistent Mailpit SMTP | AWS SES | `APP_EMAIL_PROVIDER` |
 | Files | memory | AWS S3 | `APP_FILE_STORE_PROVIDER` |
 | Download/upload URLs | deterministic stub | AWS S3 presigning | follows file-store provider |
 | Protected values | local AES-256-GCM | AWS KMS envelope encryption | `APP_CRYPTO_PROVIDER` |

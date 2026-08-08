@@ -14,23 +14,25 @@ This document separates what the starter guarantees from work that belongs to ea
   credentials, anomaly normalization, preserved structured field explanations, and a deterministic test
   adapter. Optional stable request keys integrate with `app.request.interface` for independent lifecycle
   state and stale-response suppression.
-- Account and session workflows behind `app.auth.interface`, with configurable isolated cookies,
-  tenant-bearing signed claims, authenticated routing, safe return paths, and explicit forbidden,
-  not-found, loading, and application-error outcomes.
+- Account and session workflows behind `app.auth.interface`, with required email verification and safe
+  resend, configurable isolated cookies, tenant-bearing signed claims, authenticated routing, safe return
+  paths, and explicit forbidden, not-found, loading, and application-error outcomes.
 - A small `app.clock.interface` with production and fixed adapters. `APP_LOCALE` and `APP_TIME_ZONE` are
   validated by backend configuration and exposed to the browser as CSP-safe document metadata.
 - A single configured deployment tenant by default without baking single-tenancy into domain modules.
 - Validated development and production configuration, guarded local storage reset/seed commands,
   recursive credential redaction, and isolated integration-test storage.
 - Provider-neutral email, file storage, presigning, and encryption seams with deterministic local adapters;
-  SES, S3, and KMS production adapters; and pinned Mailpit/LocalStack development infrastructure.
+  SES, S3, and KMS production adapters; pinned Mailpit/LocalStack development infrastructure; and a
+  persistent Mailpit SQLite volume with an explicit inbox-only reset.
 - A provider-neutral webhook processor with raw-body preservation, HMAC verification, process-local
   idempotency/audit receipts, and failed-receipt replay.
 - Correlation IDs, request metrics, safe dependency diagnostics, and configurable μ/log destinations.
 - A managed `scripts/dev` lifecycle for humans and coding agents, including health-checked background
-  startup, status/log/stop commands, project-owned Portless routing with localhost fallback, a complete
-  specification/build gate, a tracked-files fresh-clone acceptance check, and browser contracts for
-  development and release-compiled frontend assets.
+  startup, a same-JVM loopback nREPL with live Grain coding-agent tools, status/log/stop commands,
+  project-owned Portless routing with localhost fallback, a complete specification/build gate, a
+  tracked-files fresh-clone acceptance check, and browser contracts for development and release-compiled
+  frontend assets.
 
 The guarantee is attached to a starter tag only when its clean Linux CI workflow passes.
 

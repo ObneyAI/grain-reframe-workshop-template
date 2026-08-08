@@ -92,6 +92,12 @@
     (not (and (:http-port values) (<= 1 (:http-port values) 65535)))
     (conj "APP_HTTP_PORT must be an integer from 1 through 65535")
 
+    (not (and (:nrepl-port values) (<= 0 (:nrepl-port values) 65535)))
+    (conj "APP_NREPL_PORT must be an integer from 0 through 65535")
+
+    (not (present? (:nrepl-port-file values)))
+    (conj "APP_NREPL_PORT_FILE must not be blank")
+
     (not (http-url? (:app-base-url values)))
     (conj "APP_BASE_URL must be an absolute http or https URL")
 
@@ -203,6 +209,10 @@
                  :app-name (or (get environment-variables "APP_NAME")
                                "Grain Re-frame Workshop Template")
                  :http-port http-port
+                 :nrepl-port (parse-integer (or (get environment-variables "APP_NREPL_PORT")
+                                                "7888"))
+                 :nrepl-port-file (or (get environment-variables "APP_NREPL_PORT_FILE")
+                                      ".nrepl-port")
                  :app-base-url (or (get environment-variables "APP_BASE_URL")
                                    (str "http://localhost:" port-value))
                  :jwt-secret (or (get environment-variables "APP_JWT_SECRET")

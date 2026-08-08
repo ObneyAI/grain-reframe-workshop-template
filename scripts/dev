@@ -34,6 +34,8 @@ if ! command -v bun >/dev/null 2>&1 && [[ -x "$HOME/.bun/bin/bun" ]]; then
 fi
 
 app_port="${APP_HTTP_PORT:-8080}"
+nrepl_port="${APP_NREPL_PORT:-7888}"
+nrepl_port_file="${APP_NREPL_PORT_FILE:-.nrepl-port}"
 dev_hostname="${APP_DEV_HOSTNAME:-reframe-template}"
 mailpit_ui_port="${APP_MAILPIT_UI_PORT:-8025}"
 localstack_port="${APP_LOCALSTACK_PORT:-4566}"
@@ -112,16 +114,17 @@ wait_for_exit() {
 }
 
 listener_pids() {
-  lsof -nP -tiTCP:"$app_port" -sTCP:LISTEN 2>/dev/null || true
+  local port="$1"
+  lsof -nP -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true
 }
 
 clear_port_or_fail() {
-  local listeners
-  listeners="$(listener_pids)"
+  local port="$1" label="$2" listeners
+  listeners="$(listener_pids "$port")"
   [[ -n "$listeners" ]] || return 0
 
   if [[ "$force" -ne 1 ]]; then
-    printf 'dev: port %s is already occupied by:\n' "$app_port" >&2
+    printf 'dev: %s port %s is already occupied by:\n' "$label" "$port" >&2
     ps -o pid= -o command= -p $(printf '%s\n' "$listeners" | tr '\n' ' ') >&2 || true
     printf 'Use ./scripts/dev up --force only when those listeners are safe to stop.\n' >&2
     exit 1
@@ -129,7 +132,7 @@ clear_port_or_fail() {
 
   local process_id
   for process_id in $listeners; do
-    log "Stopping listener $process_id on port $app_port..."
+    log "Stopping listener $process_id on $label port $port..."
     kill_tree "$process_id"
     wait_for_exit "$process_id"
   done
@@ -138,7 +141,7 @@ clear_port_or_fail() {
 ensure_tools() {
   local missing=()
   local tool_name
-  for tool_name in curl java clojure bun node; do
+  for tool_name in curl java clojure bun node lsof; do
     command -v "$tool_name" >/dev/null 2>&1 || missing+=("$tool_name")
   done
   if [[ "${#missing[@]}" -gt 0 ]]; then
@@ -252,12 +255,17 @@ stop_infrastructure() {
 }
 
 write_state() {
+  local reported_nrepl_port="$nrepl_port"
+  if [[ -f "$nrepl_port_file" ]]; then
+    reported_nrepl_port="$(tr -d '[:space:]' < "$nrepl_port_file")"
+  fi
   ensure_state_dir
   {
     printf 'APP_HTTP_PORT=%q\n' "$app_port"
     printf 'APP_BASE_URL=%q\n' "$public_url"
     printf 'HEALTH_URL=%q\n' "$health_url"
     printf 'MAILBOX_URL=%q\n' "$mailbox_url"
+    printf 'NREPL_PORT=%q\n' "$reported_nrepl_port"
   } > "$state_file"
 }
 
@@ -269,6 +277,7 @@ read_state() {
     public_url="${APP_BASE_URL:-$public_url}"
     health_url="${HEALTH_URL:-$health_url}"
     mailbox_url="${MAILBOX_URL:-$mailbox_url}"
+    nrepl_port="${NREPL_PORT:-$nrepl_port}"
   fi
 }
 
@@ -289,6 +298,7 @@ start_stack() {
   log "Building the shadcn bridge before watchers start..."
   bun run --cwd ui/shadcn build
   run_detached env APP_HTTP_PORT="$app_port" APP_BASE_URL="$public_url" \
+    APP_NREPL_PORT="$nrepl_port" APP_NREPL_PORT_FILE="$nrepl_port_file" \
     bunx --bun --no-install concurrently --kill-others --names frontend,backend \
       "bun run dev:watch" \
       "clojure -M:dev -m app.dev.main"
@@ -299,14 +309,25 @@ health_ok() {
   curl --silent --show-error --fail "$health_url" >/dev/null 2>&1
 }
 
+nrepl_ready() {
+  local actual_port
+  [[ -f "$nrepl_port_file" ]] || return 1
+  actual_port="$(tr -d '[:space:]' < "$nrepl_port_file")"
+  [[ "$actual_port" =~ ^[0-9]+$ ]] || return 1
+  [[ -n "$(listener_pids "$actual_port")" ]]
+}
+
 wait_for_health() {
   local process_id="$1"
   local timeout="${DEV_ENV_HEALTH_TIMEOUT:-180}"
   local elapsed=0
   while [[ "$elapsed" -lt "$timeout" ]]; do
-    if health_ok; then
+    if health_ok && nrepl_ready; then
+      nrepl_port="$(tr -d '[:space:]' < "$nrepl_port_file")"
+      write_state
       log "Healthy: $public_url"
       log "Health:  $health_url"
+      log "nREPL:   127.0.0.1:$nrepl_port"
       return 0
     fi
     if ! is_alive "$process_id"; then
@@ -341,7 +362,10 @@ up() {
     wait_for_exit "$process_id"
     rm -f "$pid_file"
   fi
-  clear_port_or_fail
+  clear_port_or_fail "$app_port" "application"
+  if [[ "$nrepl_port" != "0" ]]; then
+    clear_port_or_fail "$nrepl_port" "nREPL"
+  fi
   start_stack
   if ! wait_for_health "$detached_pid"; then
     down
@@ -357,7 +381,7 @@ down() {
     kill_tree "$process_id"
     wait_for_exit "$process_id"
   fi
-  rm -f "$pid_file" .nrepl-port
+  rm -f "$pid_file" "$nrepl_port_file"
   stop_infrastructure
   log "Development stack stopped."
 }
@@ -393,14 +417,21 @@ reset_mail() {
 }
 
 status() {
-  local process_id process_state health_state
+  local process_id process_state health_state nrepl_state
   read_state
   process_id="$(pid_from_file)"
   if is_alive "$process_id"; then process_state="running ($process_id)"; else process_state="stopped"; fi
   if health_ok; then health_state="healthy"; else health_state="unhealthy"; fi
+  if nrepl_ready; then
+    nrepl_port="$(tr -d '[:space:]' < "$nrepl_port_file")"
+    nrepl_state="ready (127.0.0.1:$nrepl_port)"
+  else
+    nrepl_state="unavailable"
+  fi
   cat <<EOF
 stack:       $process_state
 health:      $health_state
+nREPL:       $nrepl_state
 application: $public_url
 direct:      http://localhost:$app_port
 mailbox:     $mailbox_url
@@ -423,10 +454,13 @@ foreground() {
   configure_public_url
   start_infrastructure
   write_state
-  clear_port_or_fail
+  clear_port_or_fail "$app_port" "application"
+  if [[ "$nrepl_port" != "0" ]]; then
+    clear_port_or_fail "$nrepl_port" "nREPL"
+  fi
   log "Application: $public_url"
   log "Health:      $health_url"
-  log "nREPL:       optional via ./scripts/nrepl.sh (localhost:7888)"
+  log "nREPL:       127.0.0.1:$nrepl_port (same JVM as the backend)"
   log "Building the shadcn bridge before watchers start..."
   bun run --cwd ui/shadcn build
   exec bunx --bun --no-install concurrently --kill-others --names frontend,backend \

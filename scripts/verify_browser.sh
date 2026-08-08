@@ -54,6 +54,7 @@ port="$(bun -e '
 ')"
 base_url="http://127.0.0.1:$port"
 email_capture_file="$run_dir/emails.edn"
+nrepl_port_file="$run_dir/nrepl-port"
 
 echo "==> Building $mode browser assets"
 bun run --cwd ui/shadcn build
@@ -73,6 +74,8 @@ env \
   APP_BASE_URL="$base_url" \
   APP_STORAGE_DIR="$run_dir/storage" \
   APP_AUTH_COOKIE_NAME="grain-reframe-template-browser-$mode" \
+  APP_NREPL_PORT=0 \
+  APP_NREPL_PORT_FILE="$nrepl_port_file" \
   APP_EMAIL_PROVIDER=capture \
   APP_EMAIL_CAPTURE_FILE="$email_capture_file" \
   clojure -M:dev -m app.dev.main >"$run_dir/backend.log" 2>&1 &
@@ -100,6 +103,13 @@ if [[ "$ready" != "true" ]]; then
   fi
   exit 1
 fi
+
+if [[ ! -s "$nrepl_port_file" ]]; then
+  echo "Backend became healthy without publishing its nREPL port." >&2
+  exit 1
+fi
+echo "==> Verifying coding-agent tools over the live backend nREPL"
+clojure -M:dev -m app.dev.nrepl-check "$(tr -d '[:space:]' < "$nrepl_port_file")"
 
 echo "==> Running $mode browser contract"
 if ! PLAYWRIGHT_BASE_URL="$base_url" \
