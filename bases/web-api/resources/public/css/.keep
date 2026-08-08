@@ -1,1 +1,1 @@
-CSS output (main.css) is generated here by `npm run css:build`.
+CSS output (main.css) is generated here by `bun run --cwd ui/web-app css:build`.

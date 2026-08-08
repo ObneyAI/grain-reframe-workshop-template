@@ -29,6 +29,9 @@ load_dotenv
 if ! java -version >/dev/null 2>&1 && [[ -x /opt/homebrew/opt/openjdk@21/bin/java ]]; then
   export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
 fi
+if ! command -v bun >/dev/null 2>&1 && [[ -x "$HOME/.bun/bin/bun" ]]; then
+  export PATH="$HOME/.bun/bin:$PATH"
+fi
 
 app_port="${APP_HTTP_PORT:-8080}"
 dev_hostname="${APP_DEV_HOSTNAME:-reframe-template}"
@@ -135,7 +138,7 @@ clear_port_or_fail() {
 ensure_tools() {
   local missing=()
   local tool_name
-  for tool_name in curl java clojure node npm; do
+  for tool_name in curl java clojure bun node; do
     command -v "$tool_name" >/dev/null 2>&1 || missing+=("$tool_name")
   done
   if [[ "${#missing[@]}" -gt 0 ]]; then
@@ -146,7 +149,7 @@ ensure_tools() {
 ensure_dependencies() {
   if [[ ! -d node_modules ]]; then
     log "Installing locked JavaScript dependencies..."
-    npm ci
+    bun install --frozen-lockfile
   fi
 }
 
@@ -272,10 +275,10 @@ start_stack() {
   ensure_state_dir
   : > "$log_file"
   log "Building the shadcn bridge before watchers start..."
-  npm run build --workspace @grain/shadcn
+  bun run --cwd ui/shadcn build
   run_detached env APP_HTTP_PORT="$app_port" APP_BASE_URL="$public_url" \
-    npx concurrently --kill-others --names frontend,backend \
-      "npm run dev:watch" \
+    bunx --bun --no-install concurrently --kill-others --names frontend,backend \
+      "bun run dev:watch" \
       "clojure -M:dev -m app.dev.main"
   printf '%s\n' "$detached_pid" > "$pid_file"
 }
@@ -383,9 +386,9 @@ foreground() {
   log "Health:      $health_url"
   log "nREPL:       optional via ./scripts/nrepl.sh (localhost:7888)"
   log "Building the shadcn bridge before watchers start..."
-  npm run build --workspace @grain/shadcn
-  exec npx concurrently --kill-others --names frontend,backend \
-    "npm run dev:watch" \
+  bun run --cwd ui/shadcn build
+  exec bunx --bun --no-install concurrently --kill-others --names frontend,backend \
+    "bun run dev:watch" \
     "clojure -M:dev -m app.dev.main"
 }
 

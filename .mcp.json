@@ -2,14 +2,14 @@
   "mcpServers": {
     "nrepl": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "nrepl-mcp-server"],
+      "command": "bunx",
+      "args": ["nrepl-mcp-server"],
       "env": {}
     },
     "playwright": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--headless", "--isolated", "--no-sandbox"],
+      "command": "bunx",
+      "args": ["@playwright/mcp@latest", "--headless", "--isolated", "--no-sandbox"],
       "env": {}
     }
   }

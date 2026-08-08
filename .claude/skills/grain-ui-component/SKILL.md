@@ -8,7 +8,7 @@ description: Extend the starter's reusable UIx and shadcn modules.
 Shared visual primitives live behind `app.ui.interface`. Add a primitive when two or more pages need the
 same interaction or treatment; keep one-off domain composition in its page. Prefer a small props map,
 children, semantic HTML, keyboard support, and visible focus. Search the installed shadcn components
-first. Add missing components with `npm run shadcn:add -- <name>`, review their open source, and export a
+first. Add missing components with `bun run shadcn:add -- <name>`, review their open source, and export a
 small interface from `ui/shadcn/src/index.tsx`. UI primitives may use presentation hooks but must not call
 backend queries or commands.
 

@@ -98,7 +98,7 @@ must have deliberate loading, error, empty, and success states. Keep page functi
 split large visual sections into named UIx modules.
 
 `ui/shadcn` is the TypeScript module at the React/CLJS seam. Add components with
-`npm run shadcn:add -- <name>`, review the generated source, and export only the primitives or
+`bun run shadcn:add -- <name>`, review the generated source, and export only the primitives or
 feature-level bridges that UIx needs from `src/index.tsx`. shadcn widgets may own transient focus,
 navigation, disclosure, and form interaction. Application state and completed values cross the interface
 as plain data and belong in Re-frame. Never put React elements, callbacks, or Base UI state into app-db.
@@ -179,7 +179,7 @@ Run `./scripts/verify-specs.sh`. It must pass:
 6. Production shadcn bridge, CSS, and Shadow CLJS build.
 7. Patch hygiene.
 
-For routing, auth, shadcn, or release-readiness changes, also run `npm run test:browser`. It builds and
+For routing, auth, shadcn, or release-readiness changes, also run `bun run test:browser`. It builds and
 tests both development and production frontend modes with isolated ports and storage, exercising health,
 direct auth loads, protected redirects and return paths, sign-up/login, home, query-driven routes, the
 questionnaire bridge, honest not-found behavior, and unexpected console/network failures.

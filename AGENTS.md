@@ -23,4 +23,4 @@ Quick contract:
 - When asked to start the app, use `./scripts/dev up`, confirm with `./scripts/dev status`, and report its
   application URL. Use `./scripts/dev logs` to diagnose startup and `./scripts/dev down` to stop it.
 - Run `./scripts/verify-specs.sh` before reporting success. For routing, auth, or shadcn changes, also run
-  `npm run test:browser`; be explicit about any failing gate.
+  `bun run test:browser`; be explicit about any failing gate.

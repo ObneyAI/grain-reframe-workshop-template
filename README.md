@@ -56,11 +56,12 @@ defaults. It fails if stale starter identity remains in executable configuration
 
 ## Prerequisites
 
-Have these on `PATH` before the first `npm run dev` or `./scripts/verify-specs.sh`:
+Have these on `PATH` before the first `bun run dev` or `./scripts/verify-specs.sh`:
 
 - Java 21
 - Clojure CLI — the project pins Clojure 1.12 in `deps.edn`
-- Node.js and npm
+- Bun 1.3.14 — the repository pins the package manager in `.bun-version` and `package.json`
+- Node.js 20+ — retained only as the compatibility runtime for third-party CLIs such as Vite and Playwright
 - Babashka (`bb`) — runs the Grain slice and page generator
 - clj-kondo — the lint stage of the gate
 - ripgrep (`rg`) — the frontend seam-discipline checks in the gate
@@ -71,7 +72,8 @@ Mailpit and LocalStack containers. Without Docker, the application still starts 
 files, and local encryption.
 
 Playwright's Chromium bundle is also required for the browser contract. Install the pinned bundle after
-`npm ci` with `npx playwright install chromium`; clean Linux CI uses `--with-deps` as well.
+`bun install --frozen-lockfile` with `bunx --no-install playwright install chromium`; clean Linux CI uses
+`--with-deps` as well.
 
 On macOS with Homebrew OpenJDK, Java 21 is at `/opt/homebrew/opt/openjdk@21/bin`. If
 `java -version` does not report 21, put it on `PATH` for the session:
@@ -102,7 +104,7 @@ coding agents alike:
 ./scripts/dev down
 ```
 
-Use `npm run dev`, `./scripts/dev foreground`, or the compatibility adapters `./scripts/dev.sh` and
+Use `bun run dev`, `./scripts/dev foreground`, or the compatibility adapters `./scripts/dev.sh` and
 `./portless.sh` when a foreground process is preferable. For interactive backend work, the separate nREPL
 workflow remains available:
 
@@ -178,7 +180,7 @@ ui/shadcn/
 Add another shadcn component with:
 
 ```bash
-npm run shadcn:add -- dialog
+bun run shadcn:add -- dialog
 ```
 
 The command uses the lockfile-installed CLI, so a clone does not silently select a different CLI release.
@@ -206,7 +208,7 @@ The generator prints the backend and frontend wiring still needed. Verify the wh
 Exercise real browser behavior against both frontend build modes with:
 
 ```bash
-npm run test:browser
+bun run test:browser
 ```
 
 Tagging a starter release — fresh-clone acceptance, `release_starter.sh`, the CI/tag rules, and the work

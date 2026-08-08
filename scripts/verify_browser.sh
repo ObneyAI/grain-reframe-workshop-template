@@ -13,9 +13,12 @@ fi
 if ! java -version >/dev/null 2>&1 && [[ -x /opt/homebrew/opt/openjdk@21/bin/java ]]; then
   export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
 fi
+if ! command -v bun >/dev/null 2>&1 && [[ -x "$HOME/.bun/bin/bun" ]]; then
+  export PATH="$HOME/.bun/bin:$PATH"
+fi
 
 missing=()
-for command_name in curl java clojure node npm; do
+for command_name in curl java clojure bun node; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     missing+=("$command_name")
   fi
@@ -41,7 +44,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-port="$(node -e '
+port="$(bun -e '
   const net = require("net");
   const server = net.createServer();
   server.listen(0, "127.0.0.1", () => {
@@ -52,13 +55,13 @@ port="$(node -e '
 base_url="http://127.0.0.1:$port"
 
 echo "==> Building $mode browser assets"
-npm run build --workspace @grain/shadcn
+bun run --cwd ui/shadcn build
 if [[ "$mode" == "production" ]]; then
-  npm run build --workspace ui/web-app
+  bun run --cwd ui/web-app build
 else
-  npm run css:build --workspace ui/web-app
-  (cd ui/web-app && npx shadow-cljs compile app)
-  (cd ui/web-app && exec npx shadow-cljs watch app) >"$run_dir/shadow.log" 2>&1 &
+  bun run --cwd ui/web-app css:build
+  (cd ui/web-app && bunx --bun --no-install shadow-cljs compile app)
+  (cd ui/web-app && exec bunx --bun --no-install shadow-cljs watch app) >"$run_dir/shadow.log" 2>&1 &
   compiler_pid="$!"
 fi
 
@@ -73,7 +76,8 @@ env \
 backend_pid="$!"
 
 ready="false"
-for _attempt in $(seq 1 60); do
+health_timeout="${BROWSER_HEALTH_TIMEOUT_SECONDS:-120}"
+for _attempt in $(seq 1 "$health_timeout"); do
   if curl --silent --fail "$base_url/healthcheck" >/dev/null 2>&1; then
     ready="true"
     break
@@ -95,7 +99,7 @@ if [[ "$ready" != "true" ]]; then
 fi
 
 echo "==> Running $mode browser contract"
-if ! PLAYWRIGHT_BASE_URL="$base_url" npx playwright test; then
+if ! PLAYWRIGHT_BASE_URL="$base_url" bunx --no-install playwright test; then
   echo "Backend log:" >&2
   sed -n '1,240p' "$run_dir/backend.log" >&2
   if [[ -f "$run_dir/shadow.log" ]]; then

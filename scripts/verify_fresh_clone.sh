@@ -3,7 +3,16 @@ set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 
-for command in git tar bb npm node clojure curl allium clj-kondo rg; do
+if ! java -version >/dev/null 2>&1 && [ -x /opt/homebrew/opt/openjdk@21/bin/java ]; then
+  PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+  export PATH
+fi
+if ! command -v bun >/dev/null 2>&1 && [ -x "$HOME/.bun/bin/bun" ]; then
+  PATH="$HOME/.bun/bin:$PATH"
+  export PATH
+fi
+
+for command in git tar bb bun node clojure curl allium clj-kondo rg; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "Fresh-clone verification requires '$command' on PATH." >&2
     exit 1
@@ -28,7 +37,7 @@ mkdir -p "$clone_root"
 starter_ref=$(git -C "$repo_root" rev-parse --short HEAD)
 git -C "$repo_root" archive --format=tar HEAD | tar -xf - -C "$clone_root"
 
-port=$(node -e '
+port=$(bun -e '
   const net = require("node:net");
   const server = net.createServer();
   server.listen(0, "127.0.0.1", () => {
@@ -59,15 +68,15 @@ echo "==> Establish the initialized Git baseline required by Polylith"
 )
 
 echo "==> Install JavaScript dependencies from the lockfile"
-(cd "$clone_root" && npm ci)
+(cd "$clone_root" && bun install --frozen-lockfile)
 
 echo "==> Prove the lockfile-installed shadcn CLI extension path"
 (
   cd "$clone_root"
-  npm run shadcn:add -- badge
+  bun run shadcn:add -- badge
   test -f ui/shadcn/src/components/ui/badge.tsx
-  npm test --workspace @grain/shadcn
-  npm run build --workspace @grain/shadcn
+  bun run --cwd ui/shadcn test
+  bun run --cwd ui/shadcn build
 )
 
 echo "==> Prepare Clojure dependencies from the fresh tree"

@@ -3,12 +3,12 @@
   "mcp": {
     "nrepl": {
       "type": "local",
-      "command": ["npx", "nrepl-mcp-server"],
+      "command": ["bunx", "nrepl-mcp-server"],
       "enabled": true
     },
     "playwright": {
       "type": "local",
-      "command": ["npx", "@playwright/mcp", "--headless", "--isolated", "--no-sandbox"],
+      "command": ["bunx", "@playwright/mcp", "--headless", "--isolated", "--no-sandbox"],
       "enabled": true
     }
   },

@@ -4,6 +4,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+if ! java -version >/dev/null 2>&1 && [[ -x /opt/homebrew/opt/openjdk@21/bin/java ]]; then
+  export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+fi
+if ! command -v bun >/dev/null 2>&1 && [[ -x "$HOME/.bun/bin/bun" ]]; then
+  export PATH="$HOME/.bun/bin:$PATH"
+fi
+
 tag="${1:-}"
 if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Usage: $0 vMAJOR.MINOR.PATCH" >&2
@@ -30,7 +37,7 @@ echo "==> Verifying committed files in a freshly initialized copy"
 ./scripts/verify_fresh_clone.sh
 
 echo "==> Verifying development and production browser contracts"
-npm run test:browser
+bun run test:browser
 
 git tag --annotate "$tag" --message "Grain starter $tag"
 echo "Created verified local tag $tag. Push main and the tag only after the remote CI gate passes."

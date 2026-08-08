@@ -103,7 +103,7 @@ Before tagging a release, verify only committed files in an isolated temporary c
 ./scripts/verify_fresh_clone.sh
 ```
 
-That acceptance command initializes a synthetic app, runs `npm ci`, adds and compiles a fresh shadcn
+That acceptance command initializes a synthetic app, runs `bun install --frozen-lockfile`, adds and compiles a fresh shadcn
 component through the locked CLI, prepares Clojure dependencies, runs the complete gate, starts the
 managed full stack on a temporary port and storage directory, checks known and unknown browser routes,
 then stops every managed process and removes its temporary files.

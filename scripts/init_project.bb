@@ -114,7 +114,7 @@
 
 (defn stale-identity-matches
   []
-  (let [paths [".env.example" "package.json" "package-lock.json"
+  (let [paths [".env.example" "package.json"
                "bases/web-api/resources/public/index.html"
                "components/auth/src/app/auth/interface.clj"
                "components/config/src/app/config/interface.clj"
@@ -140,9 +140,6 @@
                        "<https://reframe-template.localhost>"
                        (str "<" base-url ">"))
     (replace-required! "package.json"
-                       "\"name\": \"grain-reframe-workshop-template\""
-                       (str "\"name\": \"" slug "\""))
-    (replace-required! "package-lock.json"
                        "\"name\": \"grain-reframe-workshop-template\""
                        (str "\"name\": \"" slug "\""))
     (replace-required! "bases/web-api/resources/public/index.html"

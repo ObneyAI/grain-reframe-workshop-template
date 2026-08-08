@@ -4,14 +4,14 @@
   },
   "mcp_servers": {
     "nrepl": {
-      "command": "npx",
-      "args": ["-y", "nrepl-mcp-server"],
+      "command": "bunx",
+      "args": ["nrepl-mcp-server"],
       "env": {},
       "enabled": true
     },
     "playwright": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--headless", "--isolated", "--no-sandbox"],
+      "command": "bunx",
+      "args": ["@playwright/mcp@latest", "--headless", "--isolated", "--no-sandbox"],
       "env": {},
       "enabled": true
     }

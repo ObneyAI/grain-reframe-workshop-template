@@ -3,6 +3,15 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
+if ! java -version >/dev/null 2>&1 && [ -x /opt/homebrew/opt/openjdk@21/bin/java ]; then
+  PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+  export PATH
+fi
+if ! command -v bun >/dev/null 2>&1 && [ -x "$HOME/.bun/bin/bun" ]; then
+  PATH="$HOME/.bun/bin:$PATH"
+  export PATH
+fi
+
 echo "==> Development data lifecycle safety"
 ./scripts/verify_dev_data.sh
 
@@ -67,8 +76,8 @@ if rg -n '@base-ui|@shadcn/react' ui/web-app/src; then
 fi
 
 echo "==> shadcn typecheck, Re-frame tests, and production build"
-npm run test:ui
-npm run build
+bun run test:ui
+bun run build
 
 echo "==> Patch hygiene"
 git diff --check
