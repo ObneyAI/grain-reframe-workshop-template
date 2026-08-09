@@ -1,6 +1,7 @@
 (ns app.router.core
   (:require [app.auth.interface :as auth]
             [app.pages.auth :as auth-pages]
+            [app.pages.customer :as customer]
             [app.pages.examples :as examples]
             [app.pages.home :as home]
             [app.pages.outcomes :as outcomes]
@@ -11,6 +12,7 @@
   {:home home/page
    :questionnaire-example examples/questionnaire-page
    :query-route-example examples/query-route-page
+   :customer-workbench customer/page
    :sign-in auth-pages/sign-in-page
    :sign-up auth-pages/sign-up-page
    :forgot-password auth-pages/forgot-password-page

@@ -17,6 +17,8 @@
             [ai.obney.grain.webserver.interface :as ws]
             [app.auth.interface :as auth]
             [app.config.interface :as config]
+            ;; Registers the disposable customer example's event model.
+            [app.customer.interface]
             [app.crypto-kms.interface :as crypto-kms]
             [app.crypto.interface :as crypto]
             [app.email-ses.interface :as email-ses]
@@ -280,7 +282,8 @@
    "/auth/reset-password"
    "/forbidden"
    "/examples/questionnaire"
-   "/examples/routes"])
+   "/examples/routes"
+   "/examples/customer-workbench"])
 
 (defn spa-routes
   ([] (spa-routes default-browser-settings))

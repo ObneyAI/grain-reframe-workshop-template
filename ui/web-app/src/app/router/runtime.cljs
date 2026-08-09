@@ -9,6 +9,8 @@
     {:name :questionnaire-example :page :questionnaire-example :auth :required}]
    ["/examples/routes"
     {:name :query-route-example :page :query-route-example :auth :required}]
+   ["/examples/customer-workbench"
+    {:name :customer-workbench :page :customer-workbench :auth :required}]
    ["/auth/sign-in" {:name :sign-in :page :sign-in :auth :anonymous}]
    ["/auth/sign-up" {:name :sign-up :page :sign-up :auth :anonymous}]
    ["/auth/forgot-password" {:name :forgot-password :page :forgot-password :auth :public}]

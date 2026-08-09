@@ -1,0 +1,30 @@
+-- allium: 3
+
+entity Customer {
+    name: String
+    email: String
+    status: String
+}
+
+rule CreateCustomer {
+    when: CreateCustomer(name, email)
+    requires: not exists Customer{email: email}
+    ensures: Customer.created(name: name, email: email, status: "lead")
+}
+
+rule ChangeCustomerStatus {
+    when: ChangeCustomerStatus(customer, status)
+    requires: exists customer
+    ensures: customer.status = status
+}
+
+surface CustomerWorkbench {
+    facing customer: Customer
+    exposes:
+        customer.name
+        customer.email
+        customer.status
+    provides:
+        CreateCustomer(name, email)
+        ChangeCustomerStatus(customer, status)
+}

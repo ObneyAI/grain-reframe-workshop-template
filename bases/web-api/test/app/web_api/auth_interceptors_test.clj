@@ -111,7 +111,8 @@
         (is (nil? (verifier "other-tenant-token")))))))
 
 (deftest query-driven-client-routes-have-direct-load-support
-  (is (contains? (set core/spa-paths) "/examples/routes")))
+  (is (contains? (set core/spa-paths) "/examples/routes"))
+  (is (contains? (set core/spa-paths) "/examples/customer-workbench")))
 
 (deftest direct-load-not-found-keeps-an-honest-status-and-spa-document
   (let [response (core/spa-not-found {})]

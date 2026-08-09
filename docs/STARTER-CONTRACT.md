@@ -14,6 +14,10 @@ This document separates what the starter guarantees from work that belongs to ea
   credentials, anomaly normalization, preserved structured field explanations, and a deterministic test
   adapter. Optional stable request keys integrate with `app.request.interface` for independent lifecycle
   state and stale-response suppression.
+- A generic keyed `app.query-resource.interface` for cached Grain reads, freshness, deduplicated loading,
+  retry, and refresh, demonstrated by a disposable customer workbench. The workbench is an executable
+  tracer bullet—not starter domain guidance—and proves command → event → projection → query → Re-frame →
+  shadcn behavior, optimistic feedback, and query-string selection/filter state.
 - Account and session workflows behind `app.auth.interface`, with required email verification and safe
   resend, configurable isolated cookies, tenant-bearing signed claims, authenticated routing, safe return
   paths, and explicit forbidden, not-found, loading, and application-error outcomes.
@@ -48,10 +52,11 @@ Initialization deliberately leaves these structural contracts alone:
 - The generic `app` top namespace and Polylith layout.
 - Grain dependency coordinates and the Allium/Event Model workflow.
 - The API, authentication, configuration, shadcn, routing, and UI module seams.
-- Generic account capabilities and example routes.
+- Generic account capabilities and example routes, including the disposable customer tracer bullet.
 - Production secrets, infrastructure choices, and application domain concepts.
 
-Delete examples only after the cloned app has equivalent acceptance coverage for the seam they prove.
+Delete the disposable customer vocabulary after the cloned app has equivalent acceptance coverage for the
+seams it proves. Its statuses and fields are examples, not a recommended CRM model.
 
 ## What every cloned application must supply
 
@@ -72,6 +77,10 @@ Delete examples only after the cloned app has equivalent acceptance coverage for
 
 A cloned application's domain is its own. The starter owns the machinery for expressing and testing these
 decisions; it must not make them.
+
+The deliberately tiny customer workbench is the sole exception: it is labeled disposable and exists to
+exercise the machinery end to end. Do not grow it into a reusable CRM domain or infer product decisions
+from it.
 
 - Domain entities, their relationships, and lifecycle/state rules.
 - Workflow or pipeline stages and their transition rules.

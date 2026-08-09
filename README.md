@@ -182,6 +182,9 @@ ui/web-app/src/app/
   api/                  Grain HTTP client seam + remote/stub adapters
   auth/                 session/account Re-frame module
   clock/                system/fixed clocks + configured date presentation
+  customer/             disposable end-to-end customer tracer bullet
+  notification/         Re-frame effect over the shadcn toast manager
+  query_resource/       keyed Grain query cache/freshness/retry module
   request/              keyed pending/success/failure/retry/cancellation state
   questionnaire/        example Re-frame state module
   pages/                UIx pages
@@ -205,6 +208,12 @@ Review the generated source, then export the component—or a small feature-spec
 `ui/shadcn/src/index.tsx`. UIx can import those exports from `@grain/shadcn`. Stateful shadcn widgets
 own only ephemeral interaction state; they emit plain values into Re-frame, as the starter questionnaire
 demonstrates at `/examples/questionnaire`.
+
+The protected `/examples/customer-workbench` route is the complete disposable tracer bullet: authenticated
+Grain commands emit customer events, the read model projects them, keyed queries refresh Re-frame state,
+and Table, Badge, Combobox, Dropdown Menu, Sheet, Tabs, and Toast components render the lifecycle. Its
+record selection, tab, status filter, and sort live in query parameters. Replace its customer terminology
+after a clone has equivalent coverage for those seams.
 
 Compose cloned-app navigation and per-page actions through the `app.ui.interface/app-shell` slots. Keep
 session controls and the frame inside that module; application-specific links, filters, and actions belong

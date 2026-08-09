@@ -65,6 +65,7 @@ function collectBrowserFailures(page: Page) {
 }
 
 test("the clone-ready browser contract works without console failures", async ({ page, request }) => {
+  test.setTimeout(60_000)
   const { failures, allowNextResponse } = collectBrowserFailures(page)
   const email = `browser-${Date.now()}@example.test`
   const password = "Starter123!"
@@ -135,6 +136,30 @@ test("the clone-ready browser contract works without console failures", async ({
   await expect(page.getByRole("heading", { name: "Questionnaire bridge" })).toBeVisible()
   await expect(page.locator('[data-slot="questionnaire-progress"]')).toBeVisible()
   await expect(page.getByText("What should this Grain app prove first?")).toBeVisible()
+
+  const customerName = `Northstar ${Date.now()}`
+  await page.goto("/examples/customer-workbench?sort=name-asc")
+  await expect(page.getByRole("heading", { name: "Customer workbench" })).toBeVisible()
+  await expect(page.getByText("No customers yet")).toBeVisible()
+  await page.getByRole("button", { name: "New customer" }).click()
+  await page.getByLabel("Name").fill(customerName)
+  await page.getByLabel("Email").fill(`customer-${Date.now()}@example.test`)
+  await page.getByRole("button", { name: "Create customer" }).click()
+  await expect(page).toHaveURL(
+    /\/examples\/customer-workbench\?record-id=[^&]+&sort=name-asc&tab=summary$/,
+  )
+  await expect(page.getByTestId("customer-row").getByText(customerName)).toBeVisible()
+  const detailSheet = page.locator('[data-slot="sheet-content"]')
+  await expect(detailSheet.getByText(customerName)).toBeVisible()
+  await detailSheet.getByRole("button", { name: "Change status" }).click()
+  await page.getByRole("menuitem", { name: "Active", exact: true }).click()
+  await expect(page.getByText("Status updated")).toBeVisible()
+  await detailSheet.getByRole("tab", { name: "Activity" }).click()
+  await expect(detailSheet.getByText("Status changed")).toBeVisible()
+  const customerUrl = page.url()
+  await page.reload()
+  await expect(page).toHaveURL(customerUrl)
+  await expect(detailSheet.getByText(customerName)).toBeVisible()
 
   const notFoundResponse = await page.goto("/not-a-real-page")
   expect(notFoundResponse?.status()).toBe(404)

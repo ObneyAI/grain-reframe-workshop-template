@@ -21,7 +21,10 @@
                    "Open questionnaire example")
                 ($ :a {:class "inline-flex h-8 items-center justify-center rounded-lg px-2.5 text-sm font-medium hover:bg-muted"
                        :href "/examples/routes?record-id=example-record&tab=summary"}
-                   "Test a query-string route")))
+                   "Test a query-string route")
+                ($ :a {:class "inline-flex h-8 items-center justify-center rounded-lg px-2.5 text-sm font-medium hover:bg-muted"
+                       :href "/examples/customer-workbench?sort=name-asc"}
+                   "Open customer workbench")))
           ($ ui/surface {}
              ($ :h3 {:class "text-lg font-semibold"} "Session")
              ($ :div {:class "mt-5 space-y-2"}
