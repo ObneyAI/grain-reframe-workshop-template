@@ -25,8 +25,12 @@
                         :user/email-verified false}))
 
 (defmethod users* :user/password-set
-  [state {:keys [user-id password]}]
-  (assoc-in state [user-id :user/password] password))
+  [state {:keys [user-id password token-version]}]
+  (-> state
+      (assoc-in [user-id :user/password] password)
+      (assoc-in [user-id :user/token-version]
+                (or token-version
+                    (inc (or (get-in state [user-id :user/token-version]) 0))))))
 
 (defmethod users* :user/email-verification-requested
   [state {:keys [user-id verification-token]}]
@@ -43,9 +47,12 @@
   (assoc-in state [user-id :user/pending-reset-token] reset-token))
 
 (defmethod users* :user/password-reset
-  [state {:keys [user-id password]}]
+  [state {:keys [user-id password token-version]}]
   (-> state
       (assoc-in [user-id :user/password] password)
+      (assoc-in [user-id :user/token-version]
+                (or token-version
+                    (inc (or (get-in state [user-id :user/token-version]) 0))))
       (update user-id dissoc :user/pending-reset-token)))
 
 (defmethod users* :user/logged-out
@@ -96,6 +103,6 @@
 
 (defreadmodel :user users
   {:events user-event-types
-   :version 1}
+   :version 2}
   [state event]
   (users* state event))

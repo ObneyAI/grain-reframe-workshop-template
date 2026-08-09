@@ -33,17 +33,26 @@
                                (swap! attempts inc)
                                (when @fail? (throw (ex-info "temporary" {})))
                                {:handled true})})
-        request {:headers {"x-webhook-signature" (signature secret "payload")}
+        request {:headers {"x-webhook-signature" (signature secret "payload")
+                           "authorization" "Bearer private-provider-token"
+                           "x-provider-debug" "internal-routing-value"}
                  :body (.getBytes "payload")}
         first-result (webhooks/receive! processor request)
-        receipt-id (get-in first-result [:webhook/receipt :webhook/receipt-id])]
+        receipt-id (get-in first-result [:webhook/receipt :webhook/receipt-id])
+        duplicate-result (webhooks/receive! processor request)]
     (is (= :failed (:webhook/status first-result)))
-    (is (= :duplicate (:webhook/status (webhooks/receive! processor request))))
+    (is (nil? (get-in first-result [:webhook/receipt :webhook/headers])))
+    (is (= :duplicate (:webhook/status duplicate-result)))
+    (is (nil? (get-in duplicate-result [:webhook/receipt :webhook/headers])))
     (is (= 1 @attempts))
     (reset! fail? false)
-    (is (= :processed (:webhook/status (webhooks/replay! processor receipt-id))))
-    (is (= 2 (:webhook/attempts (webhooks/receipt processor receipt-id))))
-    (is (nil? (:webhook/raw-body (webhooks/receipt processor receipt-id))))))
+    (let [replay-result (webhooks/replay! processor receipt-id)
+          stored-receipt (webhooks/receipt processor receipt-id)]
+      (is (= :processed (:webhook/status replay-result)))
+      (is (nil? (get-in replay-result [:webhook/receipt :webhook/headers])))
+      (is (= 2 (:webhook/attempts stored-receipt)))
+      (is (nil? (:webhook/raw-body stored-receipt)))
+      (is (nil? (:webhook/headers stored-receipt))))))
 
 (deftest invalid-signatures-never-reach-the-handler
   (let [called? (atom false)

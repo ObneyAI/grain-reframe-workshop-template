@@ -36,6 +36,7 @@ rule SetPassword {
     when: SetPassword(account, password)
     requires: exists account
     ensures: account.password = password
+    ensures: account.token_version = account.token_version + 1
 }
 
 rule VerifyEmail {
@@ -62,6 +63,7 @@ rule ResetPassword {
     when: ResetPassword(account, token, password)
     requires: account.reset_token = token
     ensures: account.password = password
+    ensures: account.token_version = account.token_version + 1
     ensures: account.reset_token = null
 }
 

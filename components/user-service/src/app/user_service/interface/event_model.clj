@@ -39,9 +39,9 @@
      :grain/allium [{:spec "components/user-service/user-service.allium" :kind :rule :name "Logout"}]}
 
     :user/set-password
-    {:description "Sets a new password for the authenticated user."
+    {:description "Sets a new password for the authenticated user and invalidates outstanding sessions."
      :schema [:map [:password ::s/password]]
-     :reads #{}
+     :reads #{:user/users}
      :produces #{:user/password-set}
      :grain/allium [{:spec "components/user-service/user-service.allium" :kind :rule :name "SetPassword"}]}
 
@@ -67,7 +67,7 @@
      :grain/allium [{:spec "components/user-service/user-service.allium" :kind :rule :name "RequestPasswordReset"}]}
 
     :user/reset-password
-    {:description "Resets the password using a valid, unused reset token."
+    {:description "Resets the password using a valid, unused reset token and invalidates outstanding sessions."
      :schema [:map [:reset-token :string] [:password ::s/password]]
      :reads #{:user/users}
      :produces #{:user/password-reset}
@@ -84,8 +84,11 @@
     {:description "An account's session was ended (token-version bumped)."
      :schema [:map [:user-id :uuid] [:token-version nat-int?]]}
     :user/password-set
-    {:description "An account's password was set."
-     :schema [:map [:user-id :uuid] [:password :string]]}
+    {:description "An account's password was set and its session token version advanced."
+     :schema [:map
+              [:user-id :uuid]
+              [:password :string]
+              [:token-version {:optional true} nat-int?]]}
     :user/email-verification-requested
     {:description "A verification email was requested for an account."
      :schema [:map [:user-id :uuid] [:email-address :string] [:verification-token :string]]}
@@ -96,8 +99,11 @@
     {:description "A password reset was requested for an account."
      :schema [:map [:user-id :uuid] [:email-address :string] [:reset-token :string]]}
     :user/password-reset
-    {:description "An account's password was reset via a reset token."
-     :schema [:map [:user-id :uuid] [:password :string]]}}
+    {:description "An account's password was reset and its session token version advanced."
+     :schema [:map
+              [:user-id :uuid]
+              [:password :string]
+              [:token-version {:optional true} nat-int?]]}}
 
    :read-models
    {:user/users
@@ -109,7 +115,7 @@
                  :user/email-verified
                  :user/password-reset-requested
                  :user/password-reset}
-     :version 1}}
+     :version 2}}
 
    :queries
    {:user/session

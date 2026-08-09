@@ -19,8 +19,9 @@ This document separates what the starter guarantees from work that belongs to ea
   tracer bullet—not starter domain guidance—and proves command → event → projection → query → Re-frame →
   shadcn behavior, optimistic feedback, and query-string selection/filter state.
 - Account and session workflows behind `app.auth.interface`, with required email verification and safe
-  resend, configurable isolated cookies, tenant-bearing signed claims, authenticated routing, safe return
-  paths, and explicit forbidden, not-found, loading, and application-error outcomes.
+  resend, configurable isolated cookies, tenant-bearing versioned signed claims, session revocation on
+  logout or password change, authenticated routing, safe return paths, and explicit forbidden, not-found,
+  loading, and application-error outcomes.
 - A small `app.clock.interface` with production and fixed adapters. `APP_LOCALE` and `APP_TIME_ZONE` are
   validated by backend configuration and exposed to the browser as CSP-safe document metadata.
 - A single configured deployment tenant by default without baking single-tenancy into domain modules.
@@ -64,6 +65,8 @@ seams it proves. Its statuses and fields are examples, not a recommended CRM mod
   tenant UUID, email sender, and isolated storage path.
 - Production provider credentials, secret management, backup/restore, deployment configuration, and any
   hosted log/metric exporter appropriate to its environment.
+- Gateway throttling for public account commands such as sign-up, login, verification resend, and password
+  reset. The application preserves non-enumerating responses; the deployment edge owns request-rate policy.
 - Durable webhook receipt storage before accepting production webhooks; the starter's process-local adapter
   proves behavior but cannot preserve idempotency across restarts or multiple instances.
 - Its own domain services, authorization rules, seed adapter, navigation, visual identity, and

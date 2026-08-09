@@ -45,7 +45,10 @@
                      [:token-version nat-int?]]
    :user/password-set [:map
                        [:user-id :uuid]
-                       [:password :string]]
+                       [:password :string]
+                       ;; Optional only so existing event stores can replay events
+                       ;; written before password changes revoked sessions.
+                       [:token-version {:optional true} nat-int?]]
    :user/email-verification-requested [:map
                                        [:user-id :uuid]
                                        [:email-address :string]
@@ -59,7 +62,9 @@
                                    [:reset-token :string]]
    :user/password-reset [:map
                          [:user-id :uuid]
-                         [:password :string]]})
+                         [:password :string]
+                         ;; See the compatibility note on :user/password-set.
+                         [:token-version {:optional true} nat-int?]]})
 
 (defschemas command-schemas
   {:user/sign-up [:map

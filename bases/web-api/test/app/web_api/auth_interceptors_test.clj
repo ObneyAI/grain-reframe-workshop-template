@@ -33,6 +33,14 @@
         (is (= "" (:value cookie)))
         (is (= 0 (:max-age cookie)))))
 
+    (testing "successful password changes expire the current browser cookie"
+      (doseq [command-name [:user/set-password :user/reset-password]]
+        (let [result (leave {:grain/command {:command/name command-name}
+                             :grain/command-result {}})
+              cookie (get-in result [:response :cookies cookie-name])]
+          (is (= "" (:value cookie)))
+          (is (= 0 (:max-age cookie))))))
+
     (testing "an anomalous command result does not mutate cookies"
       (let [context {:grain/command {:command/name :user/login}
                      :grain/command-result {:cognitect.anomalies/category

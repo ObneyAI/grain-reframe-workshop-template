@@ -139,16 +139,20 @@
 
 (defcommand :user set-password
   {:authorized? auth/authenticated?
-   :grain.event-model/reads #{}
+   :grain.event-model/reads #{:user/users}
    :grain.event-model/produces #{:user/password-set}}
   [{{:keys [password]} :command :as context}]
-  (let [user-id (auth/auth-user-id context)]
-    {:command-result/events
-     [(make-event {:type :user/password-set
-                   :tags #{[:user user-id]}
-                   :body {:user-id user-id
-                          :password (hashers/derive password)}})]
-     :command/result {:password-updated true}}))
+  (let [user-id (auth/auth-user-id context)
+        current-version (rm/token-version context user-id)]
+    (if (nil? current-version)
+      (not-found "User not found.")
+      {:command-result/events
+       [(make-event {:type :user/password-set
+                     :tags #{[:user user-id]}
+                     :body {:user-id user-id
+                            :password (hashers/derive password)
+                            :token-version (inc current-version)}})]
+       :command/result {:password-updated true}})))
 
 (defcommand :user verify-email
   {:authorized? (constantly true)
@@ -224,7 +228,8 @@
   (try
     (let [payload (jwt/unsign {:token reset-token :secret jwt-secret})
           user-id (parse-uuid (:user-id payload))
-          pending-token (rm/pending-reset-token context user-id)]
+          pending-token (rm/pending-reset-token context user-id)
+          current-version (rm/token-version context user-id)]
       (cond
         (nil? pending-token)
         (conflict "Password reset link is invalid.")
@@ -237,7 +242,8 @@
          [(make-event {:type :user/password-reset
                        :tags #{[:user user-id]}
                        :body {:user-id user-id
-                              :password (hashers/derive password)}})]
+                              :password (hashers/derive password)
+                              :token-version (inc current-version)}})]
          :command/result {:password-reset true}}))
     (catch Exception _e
       (conflict "Password reset link is invalid."))))

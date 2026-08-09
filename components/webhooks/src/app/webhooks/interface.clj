@@ -15,7 +15,7 @@
   (replay! [this receipt-id]
     "Retry a failed receipt from its captured raw body.")
   (receipt [this receipt-id]
-    "Return a safe receipt without the captured raw body."))
+    "Return a safe receipt without captured request headers or raw body."))
 
 (defn body-bytes
   [body]
@@ -97,7 +97,7 @@
 
 (defn- public-receipt
   [value]
-  (dissoc value :webhook/raw-body))
+  (dissoc value :webhook/raw-body :webhook/headers))
 
 (defn- run-handler!
   [receipts receipt-id handler]

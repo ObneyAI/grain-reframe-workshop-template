@@ -35,7 +35,7 @@ defaults. It fails if stale starter identity remains in executable configuration
 - A webhook module for raw-body preservation, HMAC verification, event-ID idempotency, audit receipts,
   and failed-delivery replay.
 - Account foundation: sign-up, required email verification with safe resend, login/logout, password reset,
-  and HTTP-only sessions.
+  HTTP-only sessions, and session revocation on logout or password change.
 - Protected, anonymous-only, and public route policies with safe post-login return paths and explicit
   403, 404, session-loading, and application-error outcomes.
 - UIx + Re-frame + Reitit frontend styled with Tailwind CSS and shadcn Base UI.

@@ -102,7 +102,8 @@
                (:auth/token result))
           (set-cookie ctx (:auth/token result) cookie-options)
 
-          (= :user/logout (:command/name command))
+          (contains? #{:user/logout :user/set-password :user/reset-password}
+                     (:command/name command))
           (clear-cookie ctx cookie-options)
 
           :else ctx)))}))
