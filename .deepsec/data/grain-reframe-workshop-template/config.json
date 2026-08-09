@@ -1,0 +1,24 @@
+{
+  "priorityPaths": [
+    "bases/web-api/src/",
+    "components/auth/src/",
+    "components/user-service/src/",
+    "components/webhooks/src/",
+    "components/config/src/"
+  ],
+  "promptAppend": "This is a Clojure/Grain event-sourced system. Review authorization metadata, trusted identity and tenant context, event payload secrecy, provider boundaries, and production-vs-development configuration. Do not infer safety from generated JavaScript.",
+  "ignorePaths": [
+    ".deepsec/**",
+    "**/node_modules/**",
+    "bases/web-api/resources/public/js/**",
+    "bases/web-api/resources/public/css/**",
+    "resources/public/css/**",
+    "ui/web-app/.shadow-cljs/**",
+    "ui/web-app/out/**",
+    "ui/shadcn/dist/**",
+    "storage/**",
+    ".dev-data/**",
+    "playwright-report/**",
+    "test-results/**"
+  ]
+}
