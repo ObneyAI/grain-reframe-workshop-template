@@ -7,6 +7,7 @@
           :busy? false
           :error nil
           :notice nil}
+   :query-resources {}
    :questionnaire {:answers nil}})
 
 (rf/reg-event-db

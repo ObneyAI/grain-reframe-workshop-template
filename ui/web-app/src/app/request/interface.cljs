@@ -48,6 +48,8 @@
   [request-key]
   (rf/dispatch [::cancel request-key]))
 
+(defn cancel-event [request-key] [::cancel request-key])
+
 (defn retry!
   [request-key]
   (rf/dispatch [::retry request-key]))

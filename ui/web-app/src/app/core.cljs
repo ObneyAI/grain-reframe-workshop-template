@@ -6,13 +6,15 @@
             [app.router.interface :as router-interface]
             [app.store :as store]
             [re-frame.core :as rf]
-            ["@grain/shadcn" :refer [ApplicationErrorBoundary]]
+            ["@grain/shadcn" :refer [ApplicationErrorBoundary Toaster]]
             [uix.core :as uix :refer [defui $]]
             [uix.dom]))
 
 (defui app []
-  ($ ApplicationErrorBoundary
-     ($ router/router-outlet)))
+  ($ :<>
+     ($ ApplicationErrorBoundary
+        ($ router/router-outlet))
+     ($ Toaster)))
 
 (defonce root
   (uix.dom/create-root (js/document.getElementById "root")))

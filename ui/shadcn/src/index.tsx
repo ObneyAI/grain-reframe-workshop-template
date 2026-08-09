@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { ApplicationErrorBoundary } from "./application-error-boundary"
+import { Badge } from "#components/ui/badge"
 import { Button } from "#components/ui/button"
 import {
   Card,
@@ -10,6 +11,39 @@ import {
   CardTitle,
 } from "#components/ui/card"
 import { Input } from "#components/ui/input"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "#components/ui/combobox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "#components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "#components/ui/sheet"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "#components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "#components/ui/tabs"
+import { Toaster, toast } from "#components/ui/toast"
 import {
   Questionnaire,
   QuestionnaireActions,
@@ -67,6 +101,21 @@ export type StarterQuestionnaireAnswers = {
 export type StarterQuestionnaireProps = {
   className?: string
   onSubmit?: (answers: StarterQuestionnaireAnswers) => void
+}
+
+export type NotificationOptions = {
+  description?: string
+  title: string
+  type?: "error" | "info" | "loading" | "success" | "warning"
+}
+
+export function notify({ description, title, type = "info" }: NotificationOptions) {
+  return toast.add({
+    description,
+    priority: type === "error" ? "high" : "low",
+    title,
+    type,
+  })
 }
 
 export function StarterQuestionnaire({
@@ -157,12 +206,23 @@ export function StarterQuestionnaire({
 
 export {
   ApplicationErrorBoundary,
+  Badge,
   Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Questionnaire,
   QuestionnaireActions,
@@ -179,4 +239,22 @@ export {
   QuestionnaireSkip,
   QuestionnaireSubmit,
   QuestionnaireTitle,
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Toaster,
 }
