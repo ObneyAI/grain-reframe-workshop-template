@@ -17,6 +17,16 @@
    {:value :active :label "Active"}
    {:value :inactive :label "Inactive"}])
 
+(def status-filter-items #js ["all" "lead" "active" "inactive"])
+
+(defn- status-filter-label [value]
+  (case value
+    "all" "All statuses"
+    "lead" "Lead"
+    "active" "Active"
+    "inactive" "Inactive"
+    value))
+
 (defn- status-label [status]
   (some #(when (= status (:value %)) (:label %)) status-options))
 
@@ -82,10 +92,14 @@
      ($ :div {:class "grid gap-1.5"}
         ($ :label {:class "text-xs font-medium text-muted-foreground"} "Status")
         ($ Combobox
-           {:value (if-let [status (:status filters)] (name status) "all")
+           {:items status-filter-items
+            :itemToStringLabel status-filter-label
+            :value (if-let [status (:status filters)] (name status) "all")
             :onValueChange #(on-change (assoc filters :status
                                               (when-not (= % "all") (keyword %))))}
-           ($ ComboboxInput {:className "w-48" :placeholder "All statuses"})
+           ($ ComboboxInput {:aria-label "Status filter"
+                             :className "w-48"
+                             :placeholder "All statuses"})
            ($ ComboboxContent
               ($ ComboboxList
                  ($ ComboboxItem {:value "all"} "All statuses")
