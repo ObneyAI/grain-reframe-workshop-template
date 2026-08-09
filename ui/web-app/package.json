@@ -3,9 +3,9 @@
   "private": true,
   "scripts": {
     "dev": "concurrently -k -n cljs,css 'bunx --bun --no-install shadow-cljs watch app' 'bun run css:dev'",
-    "css:dev": "bunx --bun --no-install @tailwindcss/cli -i ./src/css/main.css -o ../../bases/web-api/resources/public/css/main.css --watch",
+    "css:dev": "tailwindcss -i ./src/css/main.css -o ../../bases/web-api/resources/public/css/main.css --watch",
     "build": "bun run css:build && bunx --bun --no-install shadow-cljs release app",
-    "css:build": "bunx --bun --no-install @tailwindcss/cli -i ./src/css/main.css -o ../../bases/web-api/resources/public/css/main.css --minify",
+    "css:build": "tailwindcss -i ./src/css/main.css -o ../../bases/web-api/resources/public/css/main.css --minify",
     "test": "bunx --bun --no-install shadow-cljs compile test && bun out/test/node-tests.js"
   },
   "devDependencies": {
